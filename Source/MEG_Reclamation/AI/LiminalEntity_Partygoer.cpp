@@ -29,17 +29,17 @@ ALiminalEntity_Partygoer::ALiminalEntity_Partygoer()
 		GetCharacterMovement()->MaxWalkSpeed = 520.0f; // Rapid cheerful stride
 	}
 
+	BalloonMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BalloonMesh"));
+	BalloonMesh->SetupAttachment(GetMesh(), TEXT("hand_r"));
+	BalloonMesh->SetRelativeLocation(FVector(10.0f, 0.0f, 60.0f));
+	BalloonMesh->SetCollisionProfileName(TEXT("NoCollision"));
+
 	BalloonLight = CreateDefaultSubobject<UPointLightComponent>(TEXT("BalloonLight"));
-	BalloonLight->SetupAttachment(RootComponent);
-	BalloonLight->SetRelativeLocation(FVector(15.0f, 25.0f, 95.0f));
+	BalloonLight->SetupAttachment(BalloonMesh);
+	BalloonLight->SetRelativeLocation(FVector(0.0f, 0.0f, 30.0f));
 	BalloonLight->SetLightColor(FLinearColor(1.0f, 0.1f, 0.1f));
 	BalloonLight->SetIntensity(180.0f);
 	BalloonLight->SetAttenuationRadius(240.0f);
-
-	BalloonMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BalloonMesh"));
-	BalloonMesh->SetupAttachment(RootComponent);
-	BalloonMesh->SetRelativeLocation(FVector(15.0f, 25.0f, 85.0f));
-	BalloonMesh->SetCollisionProfileName(TEXT("NoCollision"));
 
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> BalloonFinder(
 		TEXT("/Game/Meshes/Props/SM_Partygoer_Balloon.SM_Partygoer_Balloon"));
@@ -48,10 +48,16 @@ ALiminalEntity_Partygoer::ALiminalEntity_Partygoer()
 		BalloonMesh->SetStaticMesh(BalloonFinder.Object);
 	}
 
-	if (BodyMesh)
+	DefaultSkeletalMesh = TSoftObjectPtr<USkeletalMesh>(
+		FSoftObjectPath(TEXT("/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple.SKM_Manny_Simple")));
+	static ConstructorHelpers::FClassFinder<UAnimInstance> PartyAnimBPFinder(
+		TEXT("/Game/Characters/Mannequins/Anims/Unarmed/ABP_Unarmed.ABP_Unarmed_C"));
+	if (PartyAnimBPFinder.Succeeded())
 	{
-		BodyMesh->SetRelativeScale3D(FVector(0.9f, 0.9f, 1.05f));
+		DefaultAnimClass = PartyAnimBPFinder.Class;
 	}
+
+	SetEntityVisualScale(FVector(0.9f, 0.9f, 1.05f));
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> PartyAudio(
 		TEXT("/Game/Audio/S_Partygoer_Chime.S_Partygoer_Chime"));

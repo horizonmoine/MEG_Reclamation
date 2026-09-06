@@ -25,31 +25,37 @@ ALiminalEntity_Smiler::ALiminalEntity_Smiler()
 	AttackRange = 140.0f;
 
 	EyeGlowLeft = CreateDefaultSubobject<UPointLightComponent>(TEXT("EyeGlowLeft"));
-	EyeGlowLeft->SetupAttachment(RootComponent);
-	EyeGlowLeft->SetRelativeLocation(FVector(15.0f, -8.0f, 40.0f));
+	EyeGlowLeft->SetupAttachment(GetMesh(), TEXT("head"));
+	EyeGlowLeft->SetRelativeLocation(FVector(15.0f, -8.0f, 5.0f));
 	EyeGlowLeft->SetLightColor(FLinearColor(0.9f, 1.0f, 0.9f));
 	EyeGlowLeft->SetIntensity(120.0f);
 	EyeGlowLeft->SetAttenuationRadius(150.0f);
 
 	EyeGlowRight = CreateDefaultSubobject<UPointLightComponent>(TEXT("EyeGlowRight"));
-	EyeGlowRight->SetupAttachment(RootComponent);
-	EyeGlowRight->SetRelativeLocation(FVector(15.0f, 8.0f, 40.0f));
+	EyeGlowRight->SetupAttachment(GetMesh(), TEXT("head"));
+	EyeGlowRight->SetRelativeLocation(FVector(15.0f, 8.0f, 5.0f));
 	EyeGlowRight->SetLightColor(FLinearColor(0.9f, 1.0f, 0.9f));
 	EyeGlowRight->SetIntensity(120.0f);
 	EyeGlowRight->SetAttenuationRadius(150.0f);
 
 	SmileMouthGlow = CreateDefaultSubobject<UPointLightComponent>(TEXT("SmileMouthGlow"));
-	SmileMouthGlow->SetupAttachment(RootComponent);
-	SmileMouthGlow->SetRelativeLocation(FVector(18.0f, 0.0f, 25.0f));
+	SmileMouthGlow->SetupAttachment(GetMesh(), TEXT("head"));
+	SmileMouthGlow->SetRelativeLocation(FVector(18.0f, 0.0f, -10.0f));
 	SmileMouthGlow->SetLightColor(FLinearColor(0.95f, 1.0f, 0.95f));
 	SmileMouthGlow->SetIntensity(160.0f);
 	SmileMouthGlow->SetAttenuationRadius(180.0f);
 
-	if (BodyMesh)
+	DefaultSkeletalMesh = TSoftObjectPtr<USkeletalMesh>(
+		FSoftObjectPath(TEXT("/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple.SKM_Manny_Simple")));
+	static ConstructorHelpers::FClassFinder<UAnimInstance> SmilerAnimBPFinder(
+		TEXT("/Game/Characters/Mannequins/Anims/Unarmed/ABP_Unarmed.ABP_Unarmed_C"));
+	if (SmilerAnimBPFinder.Succeeded())
 	{
-		// The Smiler is an apparition in the shadows: body is pitch black
-		BodyMesh->SetRelativeScale3D(FVector(0.01f));
+		DefaultAnimClass = SmilerAnimBPFinder.Class;
 	}
+
+	// The Smiler is an apparition in the shadows: body is pitch black / tiny scale
+	SetEntityVisualScale(FVector(0.01f));
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> SmilerAudio(
 		TEXT("/Game/Audio/S_Smiler_Distortion.S_Smiler_Distortion"));

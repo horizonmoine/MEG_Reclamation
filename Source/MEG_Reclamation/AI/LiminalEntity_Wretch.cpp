@@ -39,10 +39,16 @@ ALiminalEntity_Wretch::ALiminalEntity_Wretch()
 		Movement->MaxWalkSpeed = WanderSpeed;
 	}
 
-	if (BodyMesh)
+	DefaultSkeletalMesh = TSoftObjectPtr<USkeletalMesh>(
+		FSoftObjectPath(TEXT("/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple.SKM_Manny_Simple")));
+	static ConstructorHelpers::FClassFinder<UAnimInstance> WretchAnimBPFinder(
+		TEXT("/Game/Characters/Mannequins/Anims/Unarmed/ABP_Unarmed.ABP_Unarmed_C"));
+	if (WretchAnimBPFinder.Succeeded())
 	{
-		BodyMesh->SetRelativeScale3D(FVector(0.85f, 0.85f, 1.15f));
+		DefaultAnimClass = WretchAnimBPFinder.Class;
 	}
+
+	SetEntityVisualScale(FVector(0.85f, 0.85f, 1.15f));
 }
 
 void ALiminalEntity_Wretch::BeginPlay()

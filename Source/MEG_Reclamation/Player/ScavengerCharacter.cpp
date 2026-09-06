@@ -4,6 +4,8 @@
 #include "Camera/CameraComponent.h"
 #include "Components/AudioComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "UObject/ConstructorHelpers.h"
 #include "Data/QuotaManager.h"
 #include "Engine/DamageEvents.h"
 #include "Engine/Engine.h"
@@ -81,13 +83,54 @@ AScavengerCharacter::AScavengerCharacter()
 	FirstPersonCamera->SetRelativeLocation(FVector(0.0f, 0.0f, 60.0f));
 	FirstPersonCamera->bUsePawnControlRotation = true;
 
+	static ConstructorHelpers::FObjectFinder<USkeletalMesh> MannyMeshFinder(
+		TEXT("/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple.SKM_Manny_Simple"));
+	static ConstructorHelpers::FClassFinder<UAnimInstance> UnarmedAnimBPFinder(
+		TEXT("/Game/Characters/Mannequins/Anims/Unarmed/ABP_Unarmed.ABP_Unarmed_C"));
+
+	FirstPersonMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FirstPersonMesh"));
+	FirstPersonMesh->SetupAttachment(FirstPersonCamera);
+	FirstPersonMesh->SetOnlyOwnerSee(true);
+	FirstPersonMesh->SetCastShadow(false);
+	FirstPersonMesh->bCastHiddenShadow = false;
+	FirstPersonMesh->SetCollisionProfileName(TEXT("NoCollision"));
+	FirstPersonMesh->SetRelativeLocation(FVector(-10.0f, 0.0f, -155.0f));
+	FirstPersonMesh->SetRelativeRotation(FRotator(0.0f, -90.0f, 0.0f));
+	if (MannyMeshFinder.Succeeded())
+	{
+		FirstPersonMesh->SetSkeletalMesh(MannyMeshFinder.Object);
+	}
+	if (UnarmedAnimBPFinder.Succeeded())
+	{
+		FirstPersonMesh->SetAnimInstanceClass(UnarmedAnimBPFinder.Class);
+	}
+
+	if (USkeletalMeshComponent* ThirdPersonMesh = GetMesh())
+	{
+		ThirdPersonMesh->SetOwnerNoSee(true);
+		ThirdPersonMesh->SetCastShadow(true);
+		ThirdPersonMesh->bCastHiddenShadow = true;
+		ThirdPersonMesh->SetCollisionProfileName(TEXT("CharacterMesh"));
+		ThirdPersonMesh->SetRelativeLocation(FVector(0.0f, 0.0f, -90.0f));
+		ThirdPersonMesh->SetRelativeRotation(FRotator(0.0f, -90.0f, 0.0f));
+		if (MannyMeshFinder.Succeeded())
+		{
+			ThirdPersonMesh->SetSkeletalMesh(MannyMeshFinder.Object);
+		}
+		if (UnarmedAnimBPFinder.Succeeded())
+		{
+			ThirdPersonMesh->SetAnimInstanceClass(UnarmedAnimBPFinder.Class);
+		}
+	}
+
 	FirstPersonToolMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FirstPersonToolMesh"));
-	FirstPersonToolMesh->SetupAttachment(FirstPersonCamera);
-	FirstPersonToolMesh->SetRelativeLocation(FVector(35.0f, 20.0f, -22.0f));
-	FirstPersonToolMesh->SetRelativeRotation(FRotator(0.0f, -15.0f, 5.0f));
+	FirstPersonToolMesh->SetupAttachment(FirstPersonMesh, TEXT("hand_r"));
+	FirstPersonToolMesh->SetRelativeLocation(FVector(4.0f, 2.0f, -1.0f));
+	FirstPersonToolMesh->SetRelativeRotation(FRotator(0.0f, 90.0f, 0.0f));
 	FirstPersonToolMesh->SetRelativeScale3D(FVector(0.35f));
 	FirstPersonToolMesh->SetCollisionProfileName(TEXT("NoCollision"));
 	FirstPersonToolMesh->SetCastShadow(false);
+	FirstPersonToolMesh->SetOnlyOwnerSee(true);
 
 	DefaultToolMesh = TSoftObjectPtr<UStaticMesh>(FSoftObjectPath(TEXT("/Game/Meshes/Tools/SM_FlashStrobe.SM_FlashStrobe")));
 
@@ -1210,6 +1253,19 @@ void AScavengerCharacter::Die(AController* Killer)
 	{
 		Movement->StopMovementImmediately();
 		Movement->DisableMovement();
+	}
+
+	if (FirstPersonMesh)
+	{
+		FirstPersonMesh->SetVisibility(false);
+	}
+	if (FirstPersonToolMesh)
+	{
+		FirstPersonToolMesh->SetVisibility(false);
+	}
+	if (USkeletalMeshComponent* ThirdPersonMesh = GetMesh())
+	{
+		ThirdPersonMesh->SetOwnerNoSee(false);
 	}
 
 	if (ALiminalGameMode* GameMode = Cast<ALiminalGameMode>(GetWorld()->GetAuthGameMode()))

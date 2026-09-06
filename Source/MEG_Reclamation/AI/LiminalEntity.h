@@ -9,6 +9,9 @@ class UAIPerceptionComponent;
 class ALiminalAIController;
 class UBehaviorTree;
 class UStaticMeshComponent;
+class USkeletalMesh;
+class UAnimInstance;
+class UAnimMontage;
 class USoundBase;
 
 UENUM(BlueprintType)
@@ -24,7 +27,8 @@ enum class EMonsterType : uint8
 	Partygoer,
 	Jerry,
 	Watcher,
-	Wretch
+	Wretch,
+	Hydrolitis
 };
 
 /**
@@ -80,6 +84,19 @@ public:
 
 	virtual void BeginPlay() override;
 
+	UFUNCTION(BlueprintCallable, Category = "Entity|Visual")
+	void SetEntityVisualScale(const FVector& Scale3D);
+
+	UFUNCTION(BlueprintCallable, Category = "Entity|Visual")
+	void SetEntityVisualVisibility(bool bVisible);
+
+	UFUNCTION(BlueprintCallable, Category = "Entity|Combat")
+	int32 OnAttackNotify(FName SocketName = NAME_None, float Radius = -1.0f, float ForwardDistance = -1.0f,
+		float DamageOverride = -1.0f, TSubclassOf<UDamageType> DamageType = nullptr, bool bDrawDebug = false);
+
+	UFUNCTION(BlueprintPure, Category = "Entity|Mesh")
+	USkeletalMeshComponent* GetSkeletalMesh() const { return GetMesh(); }
+
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Entity")
 	EMonsterType MonsterType = EMonsterType::Standard;
@@ -101,6 +118,33 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Entity")
 	TSoftObjectPtr<UStaticMesh> DefaultBodyMesh;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Entity|Mesh")
+	TSoftObjectPtr<USkeletalMesh> DefaultSkeletalMesh;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Entity|Animation")
+	TSubclassOf<UAnimInstance> DefaultAnimClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Entity|Animation")
+	TObjectPtr<UAnimMontage> AttackMontage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Entity|Animation")
+	TObjectPtr<UAnimMontage> HitReactMontage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Entity|Animation")
+	TObjectPtr<UAnimMontage> DeathMontage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Entity|Combat")
+	FName DefaultAttackSocket = FName(TEXT("AttackSocket"));
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Entity|Combat", meta = (ClampMin = "5.0"))
+	float DefaultAttackTraceRadius = 45.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Entity|Combat", meta = (ClampMin = "10.0"))
+	float DefaultAttackTraceDistance = 90.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Entity|Audio")
+	TObjectPtr<USoundBase> AttackImpactSound;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Entity|Combat", meta = (ClampMin = "0.0"))
 	float MaxHealth = 100.0f;

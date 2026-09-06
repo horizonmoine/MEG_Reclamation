@@ -35,10 +35,16 @@ ALiminalEntity_Duller::ALiminalEntity_Duller()
 		GetCharacterMovement()->MaxWalkSpeed = 390.0f;
 	}
 
-	if (BodyMesh)
+	DefaultSkeletalMesh = TSoftObjectPtr<USkeletalMesh>(
+		FSoftObjectPath(TEXT("/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple.SKM_Manny_Simple")));
+	static ConstructorHelpers::FClassFinder<UAnimInstance> DullerAnimBPFinder(
+		TEXT("/Game/Characters/Mannequins/Anims/Unarmed/ABP_Unarmed.ABP_Unarmed_C"));
+	if (DullerAnimBPFinder.Succeeded())
 	{
-		BodyMesh->SetRelativeScale3D(FVector(1.1f, 1.1f, 1.0f));
+		DefaultAnimClass = DullerAnimBPFinder.Class;
 	}
+
+	SetEntityVisualScale(FVector(1.1f, 1.1f, 1.0f));
 }
 
 void ALiminalEntity_Duller::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -98,9 +104,5 @@ void ALiminalEntity_Duller::OnRep_IsRevealed()
 
 void ALiminalEntity_Duller::UpdateVisualCloakAppearance()
 {
-	if (BodyMesh)
-	{
-		// In cloaked mode, mesh is hidden; in revealed mode, mesh is made visible with a shimmering reveal effect
-		BodyMesh->SetVisibility(bIsRevealed, true);
-	}
+	SetEntityVisualVisibility(bIsRevealed);
 }

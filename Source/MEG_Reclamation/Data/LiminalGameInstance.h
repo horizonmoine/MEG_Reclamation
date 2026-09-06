@@ -40,6 +40,12 @@ struct FLiminalSaveData
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SaveData")
 	TArray<ELevelBiome> UnlockedBiomes;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SaveData|Hub")
+	int32 HubLevel = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SaveData|Hub")
+	TArray<FName> UnlockedUpgrades;
 };
 
 UCLASS()

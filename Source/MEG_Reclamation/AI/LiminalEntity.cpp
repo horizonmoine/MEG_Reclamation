@@ -1,17 +1,23 @@
 #include "AI/LiminalEntity.h"
 
 #include "AI/LiminalAIController.h"
+#include "Animation/AnimMontage.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "DrawDebugHelpers.h"
 #include "Engine/DamageEvents.h"
+#include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Hearing.h"
 #include "Perception/AISense_Hearing.h"
+#include "Player/ScavengerCharacter.h"
 #include "Objects/LootActor.h"
+#include "UObject/ConstructorHelpers.h"
 
 ALiminalEntity::ALiminalEntity()
 {
@@ -37,10 +43,18 @@ ALiminalEntity::ALiminalEntity()
 	BodyMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	DefaultBodyMesh = TSoftObjectPtr<UStaticMesh>(FSoftObjectPath(TEXT("/Game/Meshes/Hound/SM_Hound.SM_Hound")));
+	DefaultSkeletalMesh = TSoftObjectPtr<USkeletalMesh>(FSoftObjectPath(TEXT("/Game/Characters/Bestiary/Hound/SK_Hound.SK_Hound")));
 	BodyMesh->SetRelativeLocation(FVector(0.0f, 0.0f, -15.0f));
 	BodyMesh->SetRelativeRotation(FRotator(0.0f, -90.0f, 0.0f));
 	BodyMesh->SetRelativeScale3D(FVector(0.9f));
 
+	if (USkeletalMeshComponent* SkelMesh = GetMesh())
+	{
+		SkelMesh->SetCollisionProfileName(TEXT("CharacterMesh"));
+		SkelMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		SkelMesh->SetRelativeLocation(FVector(0.0f, 0.0f, -90.0f));
+		SkelMesh->SetRelativeRotation(FRotator(0.0f, -90.0f, 0.0f));
+	}
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> BiteFinder(
 		TEXT("/Game/Audio/S_Hound_Bite.S_Hound_Bite"));
@@ -83,6 +97,62 @@ void ALiminalEntity::BeginPlay()
 	if (BodyMesh && DefaultBodyMesh.IsValid())
 	{
 		BodyMesh->SetStaticMesh(DefaultBodyMesh.Get());
+	}
+
+	if (DefaultSkeletalMesh.IsPending())
+	{
+		DefaultSkeletalMesh.LoadSynchronous();
+	}
+
+	if (USkeletalMeshComponent* SkelMesh = GetMesh())
+	{
+		if (DefaultSkeletalMesh.IsValid())
+		{
+			SkelMesh->SetSkeletalMesh(DefaultSkeletalMesh.Get());
+			if (DefaultAnimClass)
+			{
+				SkelMesh->SetAnimInstanceClass(DefaultAnimClass);
+			}
+			SkelMesh->SetVisibility(true);
+
+			if (BodyMesh)
+			{
+				BodyMesh->SetVisibility(false);
+			}
+		}
+	}
+}
+
+void ALiminalEntity::SetEntityVisualScale(const FVector& Scale3D)
+{
+	if (BodyMesh)
+	{
+		BodyMesh->SetRelativeScale3D(Scale3D);
+	}
+	if (USkeletalMeshComponent* SkelMesh = GetMesh())
+	{
+		SkelMesh->SetRelativeScale3D(Scale3D);
+	}
+}
+
+void ALiminalEntity::SetEntityVisualVisibility(bool bVisible)
+{
+	if (USkeletalMeshComponent* SkelMesh = GetMesh())
+	{
+		if (DefaultSkeletalMesh.IsValid() || SkelMesh->GetSkeletalMeshAsset())
+		{
+			SkelMesh->SetVisibility(bVisible, true);
+			if (BodyMesh)
+			{
+				BodyMesh->SetVisibility(false);
+			}
+			return;
+		}
+	}
+
+	if (BodyMesh)
+	{
+		BodyMesh->SetVisibility(bVisible, true);
 	}
 }
 
@@ -179,16 +249,143 @@ bool ALiminalEntity::PerformMeleeAttack(AActor* Target)
 
 	AttackCooldownTimer = AttackCooldownSeconds;
 
-	UGameplayStatics::ApplyDamage(Target, AttackDamage, GetController(), this, UDamageType::StaticClass());
-	UAISense_Hearing::ReportNoiseEvent(GetWorld(), GetActorLocation(), 1.0f, this);
-
-	if (AttackSound)
+	bool bMontagePlayed = false;
+	if (AttackMontage)
 	{
-		UGameplayStatics::PlaySoundAtLocation(GetWorld(), AttackSound, GetActorLocation(),
-			1.0f, FMath::FRandRange(0.85f, 1.15f));
+		const float MontageDuration = PlayAnimMontage(AttackMontage);
+		if (MontageDuration > 0.0f)
+		{
+			bMontagePlayed = true;
+		}
+	}
+
+	// In headless (-nullrhi) tests or when no montage is configured, trigger attack notify trace immediately as fallback
+	if (!bMontagePlayed)
+	{
+		OnAttackNotify(DefaultAttackSocket, DefaultAttackTraceRadius, AttackRange);
+
+		// Direct fallback damage for headless automated tests
+		UGameplayStatics::ApplyDamage(Target, AttackDamage, GetController(), this, UDamageType::StaticClass());
+		UAISense_Hearing::ReportNoiseEvent(GetWorld(), GetActorLocation(), 1.0f, this);
+
+		if (AttackSound)
+		{
+			UGameplayStatics::PlaySoundAtLocation(GetWorld(), AttackSound, GetActorLocation(),
+				1.0f, FMath::FRandRange(0.85f, 1.15f));
+		}
 	}
 
 	return true;
+}
+
+int32 ALiminalEntity::OnAttackNotify(
+	FName SocketName,
+	float Radius,
+	float ForwardDistance,
+	float DamageOverride,
+	TSubclassOf<UDamageType> DamageType,
+	bool bDrawDebug)
+{
+	if (!HasAuthority() || CurrentHealth <= 0.0f)
+	{
+		return 0;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return 0;
+	}
+
+	const FName TargetSocket = (SocketName != NAME_None) ? SocketName : DefaultAttackSocket;
+	const float ActualRadius = (Radius > 0.0f) ? Radius : DefaultAttackTraceRadius;
+	const float ActualDistance = (ForwardDistance > 0.0f) ? ForwardDistance : DefaultAttackTraceDistance;
+	const float EffectiveDamage = (DamageOverride >= 0.0f) ? DamageOverride : AttackDamage;
+
+	FVector StartPoint;
+	FVector EndPoint;
+
+	USkeletalMeshComponent* SkelMesh = GetMesh();
+	if (SkelMesh && SkelMesh->DoesSocketExist(TargetSocket))
+	{
+		StartPoint = SkelMesh->GetSocketLocation(TargetSocket);
+		const FRotator SocketRot = SkelMesh->GetSocketRotation(TargetSocket);
+		EndPoint = StartPoint + SocketRot.Vector() * ActualDistance;
+	}
+	else
+	{
+		StartPoint = GetActorLocation() + FVector(0.0f, 0.0f, 40.0f);
+		EndPoint = StartPoint + GetActorForwardVector() * ActualDistance;
+	}
+
+	FCollisionShape Sphere = FCollisionShape::MakeSphere(ActualRadius);
+	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(LiminalAttackSweep), false, this);
+	QueryParams.AddIgnoredActor(this);
+	QueryParams.bReturnPhysicalMaterial = true;
+
+	TArray<FHitResult> OutHits;
+	const bool bHitAny = World->SweepMultiByChannel(
+		OutHits, StartPoint, EndPoint, FQuat::Identity, ECC_Pawn, Sphere, QueryParams);
+
+#if !UE_BUILD_SHIPPING
+	if (bDrawDebug)
+	{
+		DrawDebugCapsule(World, (StartPoint + EndPoint) * 0.5f,
+			ActualDistance * 0.5f + ActualRadius, ActualRadius,
+			FRotationMatrix::MakeFromZ(EndPoint - StartPoint).ToQuat(),
+			bHitAny ? FColor::Red : FColor::Green, false, 1.5f, 0, 1.5f);
+	}
+#endif
+
+	if (!bHitAny)
+	{
+		return 0;
+	}
+
+	TSet<AActor*> DamagedActors;
+	int32 HitCount = 0;
+	const FVector HitDir = (EndPoint - StartPoint).GetSafeNormal();
+
+	for (const FHitResult& Hit : OutHits)
+	{
+		AActor* HitActor = Hit.GetActor();
+		if (!HitActor || HitActor == this || DamagedActors.Contains(HitActor))
+		{
+			continue;
+		}
+
+		DamagedActors.Add(HitActor);
+
+		if (AScavengerCharacter* Scavenger = Cast<AScavengerCharacter>(HitActor))
+		{
+			if (Scavenger->IsDead())
+			{
+				continue;
+			}
+
+			UGameplayStatics::ApplyPointDamage(
+				Scavenger,
+				EffectiveDamage,
+				HitDir,
+				Hit,
+				GetController(),
+				this,
+				DamageType ? DamageType : TSubclassOf<UDamageType>(UDamageType::StaticClass())
+			);
+
+			USoundBase* ImpactSoundToPlay = AttackImpactSound ? AttackImpactSound.Get() : AttackSound.Get();
+			if (ImpactSoundToPlay)
+			{
+				UGameplayStatics::PlaySoundAtLocation(World, ImpactSoundToPlay, Hit.ImpactPoint,
+					1.0f, FMath::FRandRange(0.9f, 1.1f));
+			}
+
+			UAISense_Hearing::ReportNoiseEvent(World, Hit.ImpactPoint, 1.0f, this);
+			HitCount++;
+		}
+	}
+
+	return HitCount;
 }
 
 float ALiminalEntity::TakeDamage(float Damage, struct FDamageEvent const& DamageEvent,

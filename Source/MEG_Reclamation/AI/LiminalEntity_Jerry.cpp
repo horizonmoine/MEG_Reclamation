@@ -34,16 +34,16 @@ ALiminalEntity_Jerry::ALiminalEntity_Jerry()
 	AttackCooldownSeconds = 1.8f;
 
 	PsionicAura = CreateDefaultSubobject<UPointLightComponent>(TEXT("PsionicAura"));
-	PsionicAura->SetupAttachment(RootComponent);
-	PsionicAura->SetRelativeLocation(FVector(0.0f, 0.0f, 35.0f));
+	PsionicAura->SetupAttachment(GetMesh(), TEXT("head"));
+	PsionicAura->SetRelativeLocation(FVector(0.0f, 0.0f, 10.0f));
 	PsionicAura->SetLightColor(FLinearColor(0.05f, 0.75f, 1.0f));
 	PsionicAura->SetIntensity(140.0f);
 	PsionicAura->SetAttenuationRadius(350.0f);
 
-	if (BodyMesh)
-	{
-		BodyMesh->SetRelativeScale3D(FVector(0.45f, 0.45f, 0.45f));
-	}
+	DefaultSkeletalMesh = TSoftObjectPtr<USkeletalMesh>(
+		FSoftObjectPath(TEXT("/Game/Characters/Bestiary/Jerry/SK_Jerry.SK_Jerry")));
+
+	SetEntityVisualScale(FVector(0.45f, 0.45f, 0.45f));
 }
 
 void ALiminalEntity_Jerry::BeginPlay()

@@ -10,6 +10,7 @@ class UInputAction;
 class UInputMappingContext;
 struct FInputActionValue;
 class UCameraComponent;
+class USkeletalMeshComponent;
 class ULiminalFootstepComponent;
 class ABaseTool;
 class ALiminalDoorActor;
@@ -30,6 +31,10 @@ UCLASS(Blueprintable)
 class MEG_RECLAMATION_API AScavengerCharacter : public ACharacter
 {
 	GENERATED_BODY()
+
+public:
+	using ALiminalSurvivor = AScavengerCharacter;
+
 
 public:
 	AScavengerCharacter();
@@ -186,6 +191,9 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Scavenger|Camera")
 	UStaticMeshComponent* GetFirstPersonToolMesh() const { return FirstPersonToolMesh; }
+
+	UFUNCTION(BlueprintPure, Category = "Scavenger|Mesh")
+	USkeletalMeshComponent* GetFirstPersonMesh() const { return FirstPersonMesh; }
 
 	void DeliverCarriedLoot();
 
@@ -379,6 +387,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Scavenger|View", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UCameraComponent> FirstPersonCamera;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Scavenger|Mesh", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USkeletalMeshComponent> FirstPersonMesh;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Scavenger|View", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class USpotLightComponent> HeadlampLight;

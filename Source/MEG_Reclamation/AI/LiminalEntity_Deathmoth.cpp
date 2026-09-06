@@ -44,16 +44,16 @@ ALiminalEntity_Deathmoth::ALiminalEntity_Deathmoth()
 	}
 
 	AbdomenBioluminescence = CreateDefaultSubobject<UPointLightComponent>(TEXT("AbdomenBioluminescence"));
-	AbdomenBioluminescence->SetupAttachment(RootComponent);
-	AbdomenBioluminescence->SetRelativeLocation(FVector(-20.0f, 0.0f, 0.0f));
+	AbdomenBioluminescence->SetupAttachment(GetMesh(), TEXT("abdomen_02"));
+	AbdomenBioluminescence->SetRelativeLocation(FVector(0.0f, 0.0f, 0.0f));
 	AbdomenBioluminescence->SetLightColor(FLinearColor(0.8f, 1.0f, 0.3f));
 	AbdomenBioluminescence->SetIntensity(150.0f);
 	AbdomenBioluminescence->SetAttenuationRadius(260.0f);
 
-	if (BodyMesh)
-	{
-		BodyMesh->SetRelativeScale3D(FVector(1.3f, 1.6f, 0.6f));
-	}
+	DefaultSkeletalMesh = TSoftObjectPtr<USkeletalMesh>(
+		FSoftObjectPath(TEXT("/Game/Characters/Bestiary/Deathmoth/SK_Deathmoth.SK_Deathmoth")));
+
+	SetEntityVisualScale(FVector(1.3f, 1.6f, 0.6f));
 }
 
 void ALiminalEntity_Deathmoth::BeginPlay()

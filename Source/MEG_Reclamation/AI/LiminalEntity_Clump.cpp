@@ -47,9 +47,12 @@ ALiminalEntity_Clump::ALiminalEntity_Clump()
 	GrabTrigger->SetSphereRadius(GrabRadius);
 	GrabTrigger->SetCollisionProfileName(TEXT("Trigger"));
 
+	DefaultSkeletalMesh = TSoftObjectPtr<USkeletalMesh>(
+		FSoftObjectPath(TEXT("/Game/Characters/Bestiary/Clump/SK_Clump.SK_Clump")));
+
+	SetEntityVisualScale(FVector(1.8f, 1.8f, 0.35f));
 	if (BodyMesh)
 	{
-		BodyMesh->SetRelativeScale3D(FVector(1.8f, 1.8f, 0.35f));
 		BodyMesh->SetRelativeLocation(FVector(0.0f, 0.0f, -60.0f));
 	}
 }

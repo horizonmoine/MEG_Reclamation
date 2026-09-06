@@ -38,11 +38,22 @@ ALiminalEntity_Skinwalker::ALiminalEntity_Skinwalker()
 		GetCharacterMovement()->MaxWalkSpeed = 480.0f;
 	}
 
+	DefaultSkeletalMesh = TSoftObjectPtr<USkeletalMesh>(
+		FSoftObjectPath(TEXT("/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple.SKM_Manny_Simple")));
+	static ConstructorHelpers::FClassFinder<UAnimInstance> SkinwalkerAnimBPFinder(
+		TEXT("/Game/Characters/Mannequins/Anims/Unarmed/ABP_Unarmed.ABP_Unarmed_C"));
+	if (SkinwalkerAnimBPFinder.Succeeded())
+	{
+		DefaultAnimClass = SkinwalkerAnimBPFinder.Class;
+	}
+
+	SetEntityVisualScale(FVector(1.0f, 1.0f, 1.0f));
+
 	VoiceMimicry = CreateDefaultSubobject<UVoiceMimicryComponent>(TEXT("VoiceMimicry"));
 
 	GlitchedHeadlamp = CreateDefaultSubobject<USpotLightComponent>(TEXT("GlitchedHeadlamp"));
-	GlitchedHeadlamp->SetupAttachment(RootComponent);
-	GlitchedHeadlamp->SetRelativeLocation(FVector(15.0f, 0.0f, 75.0f));
+	GlitchedHeadlamp->SetupAttachment(GetMesh(), TEXT("head"));
+	GlitchedHeadlamp->SetRelativeLocation(FVector(15.0f, 0.0f, 5.0f));
 	GlitchedHeadlamp->SetLightColor(FLinearColor(1.0f, 0.95f, 0.8f));
 	GlitchedHeadlamp->SetIntensity(300.0f);
 	GlitchedHeadlamp->SetInnerConeAngle(18.0f);
