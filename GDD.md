@@ -1,14 +1,124 @@
-# CONTEXTE DU PROJET : "M.E.G. : RECLAMATION"
+# ===================================================================
+# PARTIE 1 — LE JEU (GDD CANONIQUE)
+# ===================================================================
 
-Je développe un jeu d'horreur coopératif (1-4 joueurs) d'extraction sous Unreal Engine 5.8 (C++ & Blueprints).
+## 1.1 Pitch en une phrase
+Un jeu d'horreur d'extraction coopératif (1-4 joueurs) où des "Récupérateurs" du M.E.G. (Major Explorer Group) s'enfoncent dans les Backrooms sans armes à feu, équipés uniquement d'outils de maintenance, pour ramener des ressources et faire évoluer leur base — jusqu'à un jour, peut-être, s'échapper pour de bon.
 
-**Concept** : Mélange de Lethal Company (Boucle/Quota), Voices of the Void (Interaction technique), Pacific Drive (Maintenance/Progression), GTFO (Sécurité/Rundown) et Backrooms (Lore minimal/Ambiance).
+## 1.2 Piliers de design (non négociables)
+| Pilier | Ce que ça veut dire concrètement |
+|---|---|
+| **Active Disempowerment** | Le joueur est vulnérable par design. Pas de barre de vie type FPS, pas de combat frontal viable. |
+| **Zéro arme à feu** | Résolu définitivement. Tout gadget qui n'est pas une arme létale à distance reste autorisé — Lidar, Ancre de Réalité, Résonateur no-clip inclus. |
+| **Coop obligatoire par la friction physique** | Poids des objets, portage à deux mains, un joueur "mule" + un joueur "escorte". |
+| **La peur vient des choix, pas des scripts** | Lumière ou noir ? Porter le loot ou courir plus vite ? Vraiment ton ami qui t'appelle ? |
 
-**Philosophie** : "Active Disempowerment". Les joueurs ne sont pas des soldats, mais des "Récupérateurs" (Scavengers) avec des outils de maintenance. Pas d'armes à feu. La tension vient de la vulnérabilité et de la gestion d'inventaire physique.
+## 1.3 Boucle de jeu (Core Loop)
+```text
+HUB (sécurisé) → achat/prépa
+   ↓
+INSERTION (ascenseur, Seamless Travel serveur)
+   ↓
+SCAVENGE (loot, identification des menaces)
+   ↓
+SURVIE (gestion lumière / bruit / sanité / poids)
+   ↓
+EXTRACTION (timer de stabilité, ascenseur de sortie)
+   ↓
+retour HUB → dépense du loot → évolution du Hub → repeat
+```
 
-**Positionnement marché** : Le genre Backrooms souffre d'une saturation critique (shovelware, boucle "fuite passive" obsolète, lore sur-explicité qui tue le mystère). Ce projet rompt avec la formule "trouver la clé, courir, se cacher" au profit d'une horreur systémique : extraction scientifique, physicalité des objets, IA qui exploite la paranoïa sociale plutôt que le jump scare scripté, et un lore volontairement minimal (le monde n'explique rien, le joueur spécule).
+## 1.4 Le joueur (ALiminalSurvivor)
+Stats répliquées serveur-autoritaire :
+- **Sanity (0-100)** : baisse dans le noir, près des entités, avec le bruit ambiant anormal. Sous 30%, hallucinations client-side individuelles (portes qui n'existent pas, faux monstres — asymétrique, un joueur peut halluciner, pas les autres).
+- **Stamina** : drainée par le sprint, pénalisée par le poids porté.
+- **Poids d'inventaire** : les gros objets (loot de valeur, l'Ancre) se portent à deux mains → pas d'usage d'outil pendant ce temps.
+- **Infection** (Partygoer) : transforme un joueur en menace passive-agressive pour l'équipe, sans le tuer immédiatement.
+
+## 1.5 La Triade de Lumière (mécanique signature — conservée intégralement)
+| Mode | Avantage | Coût |
+|---|---|---|
+| **Lampe standard** | Tu vois, tu peux travailler | Attire le Smiler et les entités photophiles |
+| **Obscurité totale** | Invisible aux prédateurs lumineux | Sanity qui chute, pièges physiques invisibles |
+| **Lumière UV** | Repousse/brûle les entités d'ombre | Batterie rare, se vide vite |
+
+## 1.6 Arsenal scientifique (Gadgets — pas d'armes)
+| Outil | Fonction | Contrainte |
+|---|---|---|
+| **Tazer / Micro-onde sonique** | Repousse une entité (knockback), n'inflige aucun dégât létal | Portée ~3m, surchauffe après 1 tir |
+| **Flash Strobe** | Éblouit temporairement, révèle la géométrie cachée | Batterie limitée |
+| **Spray Eau d'Amande** | Soigne la Sanity / calme une entité agressive | Consommable, aussi vendable = dilemme risk/reward |
+| **Leurre Audio (Radio)** | Attire l'IA sonore ailleurs | Usage unique par leurre |
+| **Scanner LIDAR** | Rend visibles les Dullers, la géométrie dans le noir absolu | Nécessaire dans certains biomes (Caves) |
+| **Ancre de Réalité** | Zone sûre déployable (regen Sanity, anti-Shift local) | Très lourde, batterie ~3 min, coûteuse (2000 crédits) |
+| **Résonateur Harmonique (no-clip)** | Traverse un mur — fuite d'urgence | 70% succès / 30% échec critique (mort ou téléportation aléatoire). Trouvable en loot uniquement, jamais achetable, usage unique |
+
+## 1.7 Bestiaire (noms canoniques unifiés)
+| Entité | Punit quoi | Comportement clé |
+|---|---|---|
+| **Smiler** | L'usage de la lumière | Charge si éclairé, se fige si observé dans le noir |
+| **Skinwalker** | Le bruit / la dispersion de l'équipe | Enregistre le micro (buffer circulaire RAM), rejoue la voix pour isoler un joueur |
+| **Hound** | Le mouvement bruyant / la fuite dos tourné | Chasse au bruit, se fige si regardé (mécanique "Ange Pleureur") |
+| **Duller** | L'absence de LIDAR | Invisible à l'œil nu, visible seulement au scanner |
+| **Clump** | L'inattention | Agrippe depuis un mur/trou, nécessite un coéquipier pour le QTE de libération |
+| **Watcher** | La curiosité | Statique, draine la Sanity si on le fixe |
+| **Jerry** | L'approche imprudente | Endoctrine un joueur (perte de contrôle), doit être secouru de force |
+| **Partygoer (Infection)** | Le contact avec un allié infecté | Transforme un joueur en menace sociale passive |
+| **Hydrolitis** | Le fait de rester dans l'eau | Entité liquide des Poolrooms |
+| **Wretch** | Le bruit en général | Le "zombie" de base, sert de menace d'ambiance |
+
+## 1.8 Biomes (7 niveaux)
+1. **Niveau 0 — The Lobby** : murs jaunes, moquette, géométrie qui boucle.
+2. **Niveau 1 — Habitable Zone** : industriel, béton, passerelles, brume.
+3. **Niveau 2 — Pipe Dreams** : tunnels de maintenance, vapeur, chaleur.
+4. **Niveau 4 — Abandoned Office** : bureaux vides, calme oppressant, forte drain de Sanity.
+5. **Niveau 37 — Poolrooms** : carrelage, eau, son porté loin, ralentissement.
+6. **Niveau 8 — Cave System** : noir total, LIDAR quasi obligatoire.
+7. **Niveau ! — Run For Your Life** : couloir rouge infini, horde, sprint pur.
+
+## 1.9 Détérioration de niveau & Liminal Shift
+- Variable globale `CurrentStability` (100% → 0%) dans le GameState, répliquée.
+  - **100-60%** : normal.
+  - **60-20%** : lumières clignotantes, portes qui se verrouillent aléatoirement.
+  - **20-0%** : Collapse — horde, dégâts environnementaux.
+- **Liminal Shift** : le serveur ne modifie que les portes/tuiles qu'aucun joueur ne regarde/n'occupe (règle "Schrödinger"). Implémentation la plus sûre : changer l'état de portes logiques (ouvert/fermé/bloqué) plutôt que détruire des murs physiques.
+
+## 1.10 Économie & Progression du Hub
+- Le loot de faible valeur (cuivre, fusibles, laptops cassés) sert à faire évoluer le Hub, pas juste à être vendu.
+- **États du Hub** :
+  - **Stade 0** (taudis)
+  - **Stade 1** (Stabilisation, lumière/lit)
+  - **Stade 2** (Terminal avancé, débloque biomes difficiles)
+  - **Stade 3** (Confort, buffs pré-run)
+- Stocké dans `LiminalSaveGame` : `int32 HubLevel`, `TArray<FName> UnlockedUpgrades`.
+
+## 1.11 Objectif final & Rejouabilité
+- Construction progressive du **Portail Alpha** une fois le Hub maxé → mission finale "L'Évasion" (raid unique, très difficile).
+- Réussite → badge de Prestige + avantage permanent en New Game+, reset propre au Niveau 0.
+
+## 1.12 Types de missions
+- **Maintenance** : fusibles, valves, redémarrage serveur.
+- **Recherche** : scanner une entité, récupérer une VHS, prélever un échantillon.
+- **Survie** : purger une zone, survivre à un blackout, exfiltrer un agent perdu.
+
+## 1.13 Ton narratif
+Froid et clinique dans les rapports du M.E.G. Fragmenté et désespéré dans les notes de survivants. Jamais de vocabulaire "gaming" (HP, spawn, aggro) dans les textes en jeu — parler d'"Intégrité Biologique", "Réponse Hostile", "Manifestation". Humour noir seulement, jamais léger.
+
+## 1.14 Registre des classes C++
+- `ALiminalSurvivor` / `AScavengerCharacter` : `ACharacter` — Sanity, Poids, Infection, Wifi
+- `ALiminalEntity` : `ACharacter` — classe mère IA, enum `EMonsterType`
+- `ALiminalGadget` / `ABaseTool` : `AActor` — base Lidar / Tazer / Leurre
+- `ALiminalAnchor` / `ARealityAnchorTool` : `AActor` — Ancre de Réalité (safe zone)
+- `ALiminalLevelGenerator` : `AActor` — PCG vertical + Liminal Shift
+- `ALiminalShopTerminal` : `AActor` — achat au Hub
+- `ALiminalGameMode` : timer extraction, Director (hordes)
+- `ULiminalGameInstance` : persistance Hub/Inventaire entre maps
+- `UVoiceMimicryComponent` : `UAudioCaptureComponent` — buffer circulaire vocal
+- `FLootItem` (struct), `EEntityState` (enum)
 
 ---
+
+# ARCHITECTURE TECHNIQUE & FONDATIONS (DÉTAILS SYSTÉMIQUES)
 
 ## 1. GAMEPLAY LOOP & ÉCONOMIE
 
