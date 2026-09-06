@@ -102,6 +102,19 @@ bool FMegQuotaDebtTest::RunTest(const FString& Parameters)
 	FQuotaLogic::AddDelivered(Quota, 30);
 	TestTrue("Quota + dette soldees (190 >= 170)", FQuotaLogic::IsMet(Quota));
 
+	// Validation mathématique de la formule de quota canonique M.E.G.
+	const int32 Cycle1Solo = FQuotaLogic::CalculateCycleQuota(1, 1);
+	TestEqual("Cycle 1 Solo = 180 BR", Cycle1Solo, 180);
+
+	const int32 Cycle1Squad = FQuotaLogic::CalculateCycleQuota(1, 4);
+	TestEqual("Cycle 1 Escouade 4 = 315 BR", Cycle1Squad, 315);
+
+	const int32 Cycle2Solo = FQuotaLogic::CalculateCycleQuota(2, 1);
+	TestEqual("Cycle 2 Solo = 292 BR", Cycle2Solo, 292);
+
+	const int32 Cycle2Squad = FQuotaLogic::CalculateCycleQuota(2, 4);
+	TestEqual("Cycle 2 Escouade 4 = 427 BR", Cycle2Squad, 427);
+
 	return true;
 }
 

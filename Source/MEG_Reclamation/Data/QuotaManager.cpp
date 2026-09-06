@@ -53,7 +53,16 @@ int32 UQuotaManager::GetTotalDue() const
 	return FQuotaLogic::TotalDue(State);
 }
 
+void UQuotaManager::AdvanceCycle(int32 PlayerCount)
+{
+	CurrentCycleIndex++;
+	State.Delivered = 0;
+	State.Required = FQuotaLogic::CalculateCycleQuota(CurrentCycleIndex, PlayerCount);
+	BroadcastQuotaUpdate();
+}
+
 void UQuotaManager::BroadcastQuotaUpdate()
 {
 	OnQuotaUpdated.Broadcast(State.Delivered, FQuotaLogic::TotalDue(State));
 }
+
