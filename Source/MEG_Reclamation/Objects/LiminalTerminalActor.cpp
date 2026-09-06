@@ -19,6 +19,7 @@
 #include "Tools/TetherTool.h"
 #include "Tools/ChalkMarkerTool.h"
 #include "Tools/AdrenalineInjectorTool.h"
+#include "UI/LiminalScavengerHUD.h"
 
 ALiminalTerminalActor::ALiminalTerminalActor()
 {
@@ -146,77 +147,20 @@ void ALiminalTerminalActor::Interact(AScavengerCharacter* InteractingPlayer)
 		return;
 	}
 
-	// Cycle vers le biome suivant parmi les 11 biomes
-	const uint8 NextBiomeIndex = (static_cast<uint8>(SelectedBiome) + 1) % 11;
-	SelectedBiome = static_cast<ELevelBiome>(NextBiomeIndex);
-
-	if (HasAuthority())
+	if (APlayerController* PC = Cast<APlayerController>(InteractingPlayer->GetController()))
 	{
-		ServerSelectBiome(SelectedBiome);
-	}
-
-	FString BiomeName = TEXT("Inconnu");
-	FLinearColor BiomeColor = FLinearColor::White;
-
-	switch (SelectedBiome)
-	{
-	case ELevelBiome::Level0_YellowLobby:
-		BiomeName = TEXT("Niveau 0 - Le Lobby Jaune");
-		BiomeColor = FLinearColor(1.0f, 0.85f, 0.2f);
-		break;
-	case ELevelBiome::Level1_HabitableZone:
-		BiomeName = TEXT("Niveau 1 - Zone Habitable");
-		BiomeColor = FLinearColor(0.6f, 0.65f, 0.7f);
-		break;
-	case ELevelBiome::Level2_PipeDreams:
-		BiomeName = TEXT("Niveau 2 - Pipe Dreams (Tuyauteries)");
-		BiomeColor = FLinearColor(0.85f, 0.45f, 0.1f);
-		break;
-	case ELevelBiome::Level3_ElectricalStation:
-		BiomeName = TEXT("Niveau 3 - Station Electrique");
-		BiomeColor = FLinearColor(0.1f, 0.9f, 1.0f);
-		break;
-	case ELevelBiome::Level4_AbandonedOffice:
-		BiomeName = TEXT("Niveau 4 - Bureaux Abandonnes");
-		BiomeColor = FLinearColor(0.8f, 0.85f, 0.9f);
-		break;
-	case ELevelBiome::Level6_LightsOut:
-		BiomeName = TEXT("Niveau 6 - Noir Absolu (Lights Out)");
-		BiomeColor = FLinearColor(0.05f, 0.05f, 0.1f);
-		break;
-	case ELevelBiome::Level8_CaveSystem:
-		BiomeName = TEXT("Niveau 8 - Cavernes & Stalactites");
-		BiomeColor = FLinearColor(0.4f, 0.35f, 0.3f);
-		break;
-	case ELevelBiome::Level9_DarkSuburbs:
-		BiomeName = TEXT("Niveau 9 - Le Faubourg Obscur");
-		BiomeColor = FLinearColor(0.15f, 0.2f, 0.35f);
-		break;
-	case ELevelBiome::Level10_WheatFields:
-		BiomeName = TEXT("Niveau 10 - Les Champs de Ble");
-		BiomeColor = FLinearColor(0.95f, 0.75f, 0.2f);
-		break;
-	case ELevelBiome::Level37_Poolrooms:
-		BiomeName = TEXT("Niveau 37 - Les Poolrooms");
-		BiomeColor = FLinearColor(0.0f, 0.85f, 0.95f);
-		break;
-	case ELevelBiome::LevelRun_RunForYourLife:
-		BiomeName = TEXT("Niveau ! - Fuyez pour survivre !");
-		BiomeColor = FLinearColor(1.0f, 0.05f, 0.05f);
-		break;
-	default:
-		break;
-	}
-
-	if (ScreenLight)
-	{
-		ScreenLight->SetLightColor(BiomeColor);
-	}
-
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Cyan,
-			FString::Printf(TEXT("[TERMINAL M.E.G.] Destination selectionnee : %s. Entrez dans le Sas pour embarquer !"), *BiomeName));
+		if (ALiminalScavengerHUD* HUD = Cast<ALiminalScavengerHUD>(PC->GetHUD()))
+		{
+			if (HUD->IsTerminalOpen())
+			{
+				HUD->CloseTerminalUI();
+			}
+			else
+			{
+				HUD->OpenTerminalUI(this);
+			}
+			return;
+		}
 	}
 }
 
@@ -291,6 +235,28 @@ void ALiminalTerminalActor::ServerSelectBiome_Implementation(ELevelBiome Biome)
 	if (ULiminalGameInstance* GI = Cast<ULiminalGameInstance>(GetGameInstance()))
 	{
 		GI->SetSelectedBiome(Biome);
+	}
+
+	FLinearColor BiomeColor = FLinearColor::White;
+	switch (SelectedBiome)
+	{
+	case ELevelBiome::Level0_YellowLobby: BiomeColor = FLinearColor(1.0f, 0.85f, 0.2f); break;
+	case ELevelBiome::Level1_HabitableZone: BiomeColor = FLinearColor(0.6f, 0.65f, 0.7f); break;
+	case ELevelBiome::Level2_PipeDreams: BiomeColor = FLinearColor(0.85f, 0.45f, 0.1f); break;
+	case ELevelBiome::Level3_ElectricalStation: BiomeColor = FLinearColor(0.1f, 0.9f, 1.0f); break;
+	case ELevelBiome::Level4_AbandonedOffice: BiomeColor = FLinearColor(0.8f, 0.85f, 0.9f); break;
+	case ELevelBiome::Level6_LightsOut: BiomeColor = FLinearColor(0.05f, 0.05f, 0.1f); break;
+	case ELevelBiome::Level8_CaveSystem: BiomeColor = FLinearColor(0.4f, 0.35f, 0.3f); break;
+	case ELevelBiome::Level9_DarkSuburbs: BiomeColor = FLinearColor(0.15f, 0.2f, 0.35f); break;
+	case ELevelBiome::Level10_WheatFields: BiomeColor = FLinearColor(0.95f, 0.75f, 0.2f); break;
+	case ELevelBiome::Level37_Poolrooms: BiomeColor = FLinearColor(0.0f, 0.85f, 0.95f); break;
+	case ELevelBiome::LevelRun_RunForYourLife: BiomeColor = FLinearColor(1.0f, 0.05f, 0.05f); break;
+	default: break;
+	}
+
+	if (ScreenLight)
+	{
+		ScreenLight->SetLightColor(BiomeColor);
 	}
 }
 

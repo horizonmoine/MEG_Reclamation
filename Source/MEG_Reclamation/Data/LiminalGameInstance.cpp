@@ -124,11 +124,7 @@ void ULiminalGameInstance::ReturnToHub()
 		return;
 	}
 
-	FString HubMap = TEXT("/Game/Maps/Lvl_Loop");
-	if (FPaths::FileExists(FPaths::ProjectContentDir() / TEXT("Maps/Lvl_Hub_BaseAlpha.umap")))
-	{
-		HubMap = TEXT("/Game/Maps/Lvl_Hub_BaseAlpha");
-	}
+	const FString HubMap = TEXT("/Game/Maps/Lvl_Hub_BaseAlpha");
 
 	SaveGameToDisk();
 	UGameplayStatics::OpenLevel(World, FName(*FString::Printf(TEXT("%s?listen&game=/Script/MEG_Reclamation.LiminalLobbyGameMode"), *HubMap)));

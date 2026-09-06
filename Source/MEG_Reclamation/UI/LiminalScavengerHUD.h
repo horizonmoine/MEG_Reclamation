@@ -44,6 +44,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Liminal|HUD")
 	void ShowLootPickupNotification(int32 Credits, float WeightKg);
 
+	UFUNCTION(BlueprintCallable, Category = "Liminal|HUD")
+	void OpenTerminalUI(class ALiminalTerminalActor* InTerminal);
+
+	UFUNCTION(BlueprintCallable, Category = "Liminal|HUD")
+	void CloseTerminalUI();
+
+	UFUNCTION(BlueprintPure, Category = "Liminal|HUD")
+	bool IsTerminalOpen() const { return bShowTerminalUI; }
+
 protected:
 	AScavengerCharacter* GetOwningScavenger() const;
 	ALiminalSpectatorPawn* GetOwningSpectator() const;
@@ -58,6 +67,8 @@ protected:
 	void DrawVHSBodycamOSD(AScavengerCharacter* Scavenger, float ScreenWidth, float ScreenHeight);
 	void DrawDamageVignette(float Intensity, float ScreenWidth, float ScreenHeight);
 	void DrawDownedIndicator(AScavengerCharacter* Scavenger, float ScreenWidth, float ScreenHeight);
+	void DrawTerminalUI(float ScreenWidth, float ScreenHeight);
+	void HandleTerminalInput();
 
 	void DrawProgressBar(float X, float Y, float Width, float Height, float Percent,
 		const FLinearColor& FillColor, const FLinearColor& BackColor, const FString& Label);
@@ -69,4 +80,10 @@ private:
 	bool bShowVHSOverlay = true;
 	float LootNotificationTimer = 0.0f;
 	FString LootNotificationText;
+
+	bool bShowTerminalUI = false;
+	TWeakObjectPtr<class ALiminalTerminalActor> ActiveTerminal;
+	int32 TerminalActiveTab = 0;
+	int32 TerminalSelectedIndex = 0;
+	float TerminalInputCooldown = 0.0f;
 };

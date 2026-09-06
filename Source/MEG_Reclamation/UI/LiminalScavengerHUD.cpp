@@ -54,6 +54,14 @@ void ALiminalScavengerHUD::DrawHUD()
 	GlitchTimer += DeltaSeconds * 3.0f;
 	ScanlineOffset = FMath::Fmod(ScanlineOffset + DeltaSeconds * 40.0f, ScreenHeight);
 
+	// Si le Terminal M.E.G. est ouvert
+	if (bShowTerminalUI)
+	{
+		HandleTerminalInput();
+		DrawTerminalUI(ScreenWidth, ScreenHeight);
+		return;
+	}
+
 	// Si le manuel de terrain tactique M.E.G. est ouvert
 	if (bShowFieldManual)
 	{
@@ -882,3 +890,361 @@ void ALiminalScavengerHUD::DrawDownedIndicator(AScavengerCharacter* Scavenger, f
 		}
 	}
 }
+
+void ALiminalScavengerHUD::OpenTerminalUI(ALiminalTerminalActor* InTerminal)
+{
+	bShowTerminalUI = true;
+	ActiveTerminal = InTerminal;
+	TerminalActiveTab = 0;
+	TerminalSelectedIndex = 0;
+	TerminalInputCooldown = 0.2f;
+
+	if (APlayerController* PC = GetOwningPlayerController())
+	{
+		PC->bShowMouseCursor = true;
+		PC->SetInputMode(FInputModeGameAndUI());
+	}
+}
+
+void ALiminalScavengerHUD::CloseTerminalUI()
+{
+	bShowTerminalUI = false;
+	ActiveTerminal = nullptr;
+
+	if (APlayerController* PC = GetOwningPlayerController())
+	{
+		PC->bShowMouseCursor = false;
+		PC->SetInputMode(FInputModeGameOnly());
+	}
+}
+
+void ALiminalScavengerHUD::HandleTerminalInput()
+{
+	APlayerController* PC = GetOwningPlayerController();
+	if (!PC)
+	{
+		return;
+	}
+
+	const float DeltaSeconds = GetWorld() ? GetWorld()->GetDeltaSeconds() : 0.016f;
+	if (TerminalInputCooldown > 0.0f)
+	{
+		TerminalInputCooldown -= DeltaSeconds;
+		return;
+	}
+
+	// Fermer le terminal
+	if (PC->WasInputKeyJustPressed(EKeys::Escape) || PC->WasInputKeyJustPressed(EKeys::E))
+	{
+		CloseTerminalUI();
+		return;
+	}
+
+	// Navigation Onglets
+	if (PC->WasInputKeyJustPressed(EKeys::Tab) || PC->WasInputKeyJustPressed(EKeys::Right) || PC->WasInputKeyJustPressed(EKeys::D))
+	{
+		TerminalActiveTab = (TerminalActiveTab + 1) % 4;
+		TerminalSelectedIndex = 0;
+		TerminalInputCooldown = 0.15f;
+		return;
+	}
+	if (PC->WasInputKeyJustPressed(EKeys::Left) || PC->WasInputKeyJustPressed(EKeys::A) || PC->WasInputKeyJustPressed(EKeys::Q))
+	{
+		TerminalActiveTab = (TerminalActiveTab + 3) % 4;
+		TerminalSelectedIndex = 0;
+		TerminalInputCooldown = 0.15f;
+		return;
+	}
+	if (PC->WasInputKeyJustPressed(EKeys::One) || PC->WasInputKeyJustPressed(EKeys::NumPadOne)) { TerminalActiveTab = 0; TerminalSelectedIndex = 0; TerminalInputCooldown = 0.15f; return; }
+	if (PC->WasInputKeyJustPressed(EKeys::Two) || PC->WasInputKeyJustPressed(EKeys::NumPadTwo)) { TerminalActiveTab = 1; TerminalSelectedIndex = 0; TerminalInputCooldown = 0.15f; return; }
+	if (PC->WasInputKeyJustPressed(EKeys::Three) || PC->WasInputKeyJustPressed(EKeys::NumPadThree)) { TerminalActiveTab = 2; TerminalSelectedIndex = 0; TerminalInputCooldown = 0.15f; return; }
+	if (PC->WasInputKeyJustPressed(EKeys::Four) || PC->WasInputKeyJustPressed(EKeys::NumPadFour)) { TerminalActiveTab = 3; TerminalSelectedIndex = 0; TerminalInputCooldown = 0.15f; return; }
+
+	// Max items par onglet
+	int32 MaxItems = 0;
+	if (TerminalActiveTab == 0)
+	{
+		MaxItems = 11; // 11 biomes
+	}
+	else if (TerminalActiveTab == 1)
+	{
+		MaxItems = ActiveTerminal.IsValid() ? ActiveTerminal->GetStoreCatalog().Num() : 0;
+	}
+
+	if (MaxItems > 0)
+	{
+		if (PC->WasInputKeyJustPressed(EKeys::Up) || PC->WasInputKeyJustPressed(EKeys::W))
+		{
+			TerminalSelectedIndex = (TerminalSelectedIndex - 1 + MaxItems) % MaxItems;
+			TerminalInputCooldown = 0.12f;
+			return;
+		}
+		if (PC->WasInputKeyJustPressed(EKeys::Down) || PC->WasInputKeyJustPressed(EKeys::S))
+		{
+			TerminalSelectedIndex = (TerminalSelectedIndex + 1) % MaxItems;
+			TerminalInputCooldown = 0.12f;
+			return;
+		}
+
+		// Validation / Achat
+		if (PC->WasInputKeyJustPressed(EKeys::Enter) || PC->WasInputKeyJustPressed(EKeys::SpaceBar) || PC->WasInputKeyJustPressed(EKeys::LeftMouseButton))
+		{
+			if (TerminalActiveTab == 0 && ActiveTerminal.IsValid())
+			{
+				ActiveTerminal->ServerSelectBiome(static_cast<ELevelBiome>(TerminalSelectedIndex));
+				TerminalInputCooldown = 0.25f;
+			}
+			else if (TerminalActiveTab == 1 && ActiveTerminal.IsValid())
+			{
+				const TArray<FTerminalStoreItem>& Catalog = ActiveTerminal->GetStoreCatalog();
+				if (Catalog.IsValidIndex(TerminalSelectedIndex))
+				{
+					ActiveTerminal->ServerPurchaseStoreItem(Catalog[TerminalSelectedIndex].ItemId, GetOwningScavenger());
+					TerminalInputCooldown = 0.25f;
+				}
+			}
+		}
+	}
+}
+
+void ALiminalScavengerHUD::DrawTerminalUI(float ScreenWidth, float ScreenHeight)
+{
+	if (!Canvas) return;
+
+	const float BoxW = 1000.0f;
+	const float BoxH = 680.0f;
+	const float BoxX = (ScreenWidth - BoxW) * 0.5f;
+	const float BoxY = (ScreenHeight - BoxH) * 0.5f;
+
+	// Fond noir CRT
+	DrawRect(FLinearColor(0.015f, 0.02f, 0.018f, 0.95f), BoxX, BoxY, BoxW, BoxH);
+
+	// Bordure CRT verte
+	const FLinearColor CRTColor(0.15f, 1.0f, 0.35f, 1.0f);
+	const FLinearColor CRTDimColor(0.08f, 0.45f, 0.15f, 0.8f);
+	const FLinearColor CRTAmber(1.0f, 0.75f, 0.2f, 1.0f);
+	Canvas->K2_DrawBox(FVector2D(BoxX, BoxY), FVector2D(BoxW, BoxH), 2.0f, CRTColor);
+
+	// En-tete
+	DrawRect(FLinearColor(0.03f, 0.12f, 0.05f, 0.9f), BoxX + 2.0f, BoxY + 2.0f, BoxW - 4.0f, 40.0f);
+	Canvas->K2_DrawLine(FVector2D(BoxX, BoxY + 42.0f), FVector2D(BoxX + BoxW, BoxY + 42.0f), 1.5f, CRTColor);
+
+	FCanvasTextItem TitleText(FVector2D(BoxX + 20.0f, BoxY + 10.0f),
+		FText::FromString(TEXT("M.E.G. OS v3.12 // TERMINAL LOGISTIQUE DE BASE ALPHA")),
+		GEngine->GetMediumFont(), CRTColor);
+	TitleText.EnableShadow(FLinearColor::Black);
+	Canvas->DrawItem(TitleText);
+
+	// Sous-titre : credits et destination
+	ULiminalGameInstance* GI = Cast<ULiminalGameInstance>(GetGameInstance());
+	const int32 Credits = GI ? GI->GetTotalCredits() : 0;
+	const ELevelBiome CurBiome = ActiveTerminal.IsValid() ? ActiveTerminal->GetCurrentlySelectedBiome() : ELevelBiome::Level0_YellowLobby;
+
+	FString BiomeLabel = TEXT("Niveau 0 — Le Lobby");
+	switch (CurBiome)
+	{
+	case ELevelBiome::Level0_YellowLobby: BiomeLabel = TEXT("Niveau 0 — Le Lobby Jaune"); break;
+	case ELevelBiome::Level1_HabitableZone: BiomeLabel = TEXT("Niveau 1 — Zone Habitable"); break;
+	case ELevelBiome::Level2_PipeDreams: BiomeLabel = TEXT("Niveau 2 — Pipe Dreams"); break;
+	case ELevelBiome::Level3_ElectricalStation: BiomeLabel = TEXT("Niveau 3 — Station Electrique"); break;
+	case ELevelBiome::Level4_AbandonedOffice: BiomeLabel = TEXT("Niveau 4 — Bureaux Abandonnes"); break;
+	case ELevelBiome::Level6_LightsOut: BiomeLabel = TEXT("Niveau 6 — Noir Absolu (Lights Out)"); break;
+	case ELevelBiome::Level8_CaveSystem: BiomeLabel = TEXT("Niveau 8 — Cavernes & Stalactites"); break;
+	case ELevelBiome::Level9_DarkSuburbs: BiomeLabel = TEXT("Niveau 9 — Faubourg Obscur"); break;
+	case ELevelBiome::Level10_WheatFields: BiomeLabel = TEXT("Niveau 10 — Champs de Ble"); break;
+	case ELevelBiome::Level37_Poolrooms: BiomeLabel = TEXT("Niveau 37 — Les Poolrooms"); break;
+	case ELevelBiome::LevelRun_RunForYourLife: BiomeLabel = TEXT("Niveau ! — Fuyez pour survivre !"); break;
+	default: break;
+	}
+
+	const FString Subheader = FString::Printf(TEXT("DESTINATION PROGRAMMEE : [%s]   |   SOLDE CORPORATIF : %d CR"), *BiomeLabel, Credits);
+	FCanvasTextItem SubText(FVector2D(BoxX + 20.0f, BoxY + 48.0f), FText::FromString(Subheader), GEngine->GetSmallFont(), CRTAmber);
+	SubText.EnableShadow(FLinearColor::Black);
+	Canvas->DrawItem(SubText);
+
+	// Barre des onglets
+	const float TabY = BoxY + 75.0f;
+	TArray<FString> TabLabels = {
+		TEXT("[ 1. DESTINATIONS ]"),
+		TEXT("[ 2. BOUTIQUE / OUTILS ]"),
+		TEXT("[ 3. MANDAT & QUOTA ]"),
+		TEXT("[ 4. BESTIAIRE & SURVIE ]")
+	};
+	const float TabW = (BoxW - 40.0f) / 4.0f;
+	for (int32 i = 0; i < 4; ++i)
+	{
+		const float TX = BoxX + 20.0f + i * TabW;
+		const bool bIsActive = (i == TerminalActiveTab);
+		if (bIsActive)
+		{
+			DrawRect(FLinearColor(0.05f, 0.25f, 0.1f, 0.9f), TX, TabY, TabW - 6.0f, 28.0f);
+			Canvas->K2_DrawBox(FVector2D(TX, TabY), FVector2D(TabW - 6.0f, 28.0f), 1.5f, CRTColor);
+		}
+		else
+		{
+			DrawRect(FLinearColor(0.02f, 0.08f, 0.04f, 0.6f), TX, TabY, TabW - 6.0f, 28.0f);
+		}
+		FCanvasTextItem TText(FVector2D(TX + 12.0f, TabY + 6.0f), FText::FromString(TabLabels[i]),
+			GEngine->GetSmallFont(), bIsActive ? CRTColor : CRTDimColor);
+		Canvas->DrawItem(TText);
+	}
+	Canvas->K2_DrawLine(FVector2D(BoxX + 20.0f, TabY + 34.0f), FVector2D(BoxX + BoxW - 20.0f, TabY + 34.0f), 1.0f, CRTColor);
+
+	// Zone de contenu
+	const float ContentY = TabY + 45.0f;
+
+	if (TerminalActiveTab == 0)
+	{
+		// ONGLET 1 : DESTINATIONS (11 BIOMES)
+		struct FBiomeInfo { FString Name; FString Danger; FString Scrap; FString Entities; };
+		TArray<FBiomeInfo> BiomeList = {
+			{ TEXT("Niveau 0 — Le Lobby Jaune"), TEXT("Faible"), TEXT("1.0x"), TEXT("Smiler, Hound") },
+			{ TEXT("Niveau 1 — Zone Habitable"), TEXT("Modere"), TEXT("1.2x"), TEXT("Hound, Skin-stealer") },
+			{ TEXT("Niveau 2 — Pipe Dreams (Tuyaux)"), TEXT("Eleve"), TEXT("1.5x"), TEXT("Smiler, Clump") },
+			{ TEXT("Niveau 3 — Station Electrique"), TEXT("Eleve"), TEXT("1.8x"), TEXT("Duller, Smiler") },
+			{ TEXT("Niveau 4 — Bureaux Abandonnes"), TEXT("Modere"), TEXT("1.4x"), TEXT("Hound, Jerry") },
+			{ TEXT("Niveau 6 — Noir Absolu (Lights Out)"), TEXT("Mortel"), TEXT("2.2x"), TEXT("Smiler, Wretch") },
+			{ TEXT("Niveau 8 — Cavernes & Stalactites"), TEXT("Mortel"), TEXT("2.5x"), TEXT("Deathmoth, Clump") },
+			{ TEXT("Niveau 9 — Le Faubourg Obscur"), TEXT("Tres Eleve"), TEXT("2.0x"), TEXT("Skin-stealer") },
+			{ TEXT("Niveau 10 — Les Champs de Ble"), TEXT("Eleve"), TEXT("1.9x"), TEXT("Watcher, Smiler") },
+			{ TEXT("Niveau 37 — Les Poolrooms"), TEXT("Variable"), TEXT("2.0x"), TEXT("Hydrolitis") },
+			{ TEXT("Niveau ! — Fuyez pour survivre !"), TEXT("Extreme"), TEXT("3.5x"), TEXT("Horde Smilers") }
+		};
+
+		FCanvasTextItem HeaderRow(FVector2D(BoxX + 30.0f, ContentY),
+			FText::FromString(TEXT("  NIVEAU                         DANGER       SCRAP   MENACES PRINCIPALES")),
+			GEngine->GetSmallFont(), CRTAmber);
+		Canvas->DrawItem(HeaderRow);
+
+		for (int32 i = 0; i < BiomeList.Num(); ++i)
+		{
+			const float RowY = ContentY + 20.0f + i * 42.0f;
+			const bool bSelected = (i == TerminalSelectedIndex);
+			const bool bProgrammed = (i == static_cast<int32>(CurBiome));
+
+			if (bSelected)
+			{
+				DrawRect(FLinearColor(0.08f, 0.35f, 0.15f, 0.7f), BoxX + 25.0f, RowY - 2.0f, BoxW - 50.0f, 36.0f);
+				Canvas->K2_DrawBox(FVector2D(BoxX + 25.0f, RowY - 2.0f), FVector2D(BoxW - 50.0f, 36.0f), 1.0f, CRTColor);
+			}
+
+			FString Prefix = bSelected ? TEXT("> ") : TEXT("  ");
+			FString StatusTag = bProgrammed ? TEXT(" [PROGRAMME]") : TEXT("");
+			FString LineStr = FString::Printf(TEXT("%s%-30s %-12s %-7s %s%s"),
+				*Prefix, *BiomeList[i].Name, *BiomeList[i].Danger, *BiomeList[i].Scrap, *BiomeList[i].Entities, *StatusTag);
+
+			FCanvasTextItem RowText(FVector2D(BoxX + 30.0f, RowY + 8.0f), FText::FromString(LineStr),
+				GEngine->GetSmallFont(), bSelected ? CRTAmber : (bProgrammed ? CRTColor : CRTDimColor));
+			Canvas->DrawItem(RowText);
+		}
+	}
+	else if (TerminalActiveTab == 1)
+	{
+		// ONGLET 2 : BOUTIQUE / OUTILS M.E.G.
+		FCanvasTextItem HeaderRow(FVector2D(BoxX + 30.0f, ContentY),
+			FText::FromString(TEXT("  ARTICLE / EQUIPEMENT M.E.G.                     PRIX      STATUT DISPONIBLE")),
+			GEngine->GetSmallFont(), CRTAmber);
+		Canvas->DrawItem(HeaderRow);
+
+		if (ActiveTerminal.IsValid())
+		{
+			const TArray<FTerminalStoreItem>& Catalog = ActiveTerminal->GetStoreCatalog();
+			for (int32 i = 0; i < Catalog.Num(); ++i)
+			{
+				const float RowY = ContentY + 20.0f + i * 42.0f;
+				const bool bSelected = (i == TerminalSelectedIndex);
+				const bool bAffordable = (Credits >= Catalog[i].CostCredits);
+
+				if (bSelected)
+				{
+					DrawRect(FLinearColor(0.08f, 0.35f, 0.15f, 0.7f), BoxX + 25.0f, RowY - 2.0f, BoxW - 50.0f, 36.0f);
+					Canvas->K2_DrawBox(FVector2D(BoxX + 25.0f, RowY - 2.0f), FVector2D(BoxW - 50.0f, 36.0f), 1.0f, CRTColor);
+				}
+
+				FString Prefix = bSelected ? TEXT("> ") : TEXT("  ");
+				FString PriceStr = FString::Printf(TEXT("%d CR"), Catalog[i].CostCredits);
+				FString AffordStr = bAffordable ? TEXT("[EN STOCK]") : TEXT("[FONDS INSUFFISANTS]");
+
+				FString ItemLine = FString::Printf(TEXT("%s%-44s %-9s %s"),
+					*Prefix, *Catalog[i].DisplayName.ToString(), *PriceStr, *AffordStr);
+
+				FCanvasTextItem ItemText(FVector2D(BoxX + 30.0f, RowY + 8.0f), FText::FromString(ItemLine),
+					GEngine->GetSmallFont(), bSelected ? CRTAmber : (bAffordable ? CRTColor : FLinearColor(0.6f, 0.2f, 0.2f, 0.8f)));
+				Canvas->DrawItem(ItemText);
+			}
+		}
+	}
+	else if (TerminalActiveTab == 2)
+	{
+		// ONGLET 3 : MANDAT & QUOTA
+		FCanvasTextItem MandatTitle(FVector2D(BoxX + 30.0f, ContentY),
+			FText::FromString(TEXT("MANDAT CORPORATIF M.E.G. // PROTOCOLE D'EXTRACTION TRI-JOURNALIER")),
+			GEngine->GetMediumFont(), CRTColor);
+		Canvas->DrawItem(MandatTitle);
+
+		TArray<FString> QuotaLines = {
+			TEXT(""),
+			TEXT("FORMULE CANONIQUE DU QUOTA : Q(k, N) = floor(180 * (1.32)^(k-1) + 55 * (k-1)^1.4) + 45 * (N - 1)"),
+			TEXT("Le quota doit etre solde tous les 3 jours d'incursion a la baie de depose de la Base Alpha."),
+			TEXT("Tout butin (composants, cuivre, noyaux anormaux) doit etre decharge dans la zone [AExtractionZone]."),
+			TEXT(""),
+			TEXT("ASSURANCE FUNERAIRE ET SANCTIONS MILITAIRES :"),
+			TEXT("  - Rapatriement de plaque d'identification (Dog Tag) : +50 CR credites a l'escouade."),
+			TEXT("  - Abandon de depouille humaine sur le terrain : -80 CR de penalite militaire."),
+			TEXT(""),
+			TEXT("BATTERIE ET RESERVES DU SAS :"),
+			TEXT("  - Reserve electrique du sas : 1000 Wh."),
+			TEXT("  - Consommation maintien de porte : 4 Wh/s  |  Purge et surcharge sous pression : 150 Wh."),
+			TEXT(""),
+			TEXT("AVERTISSEMENT : En cas de defaut de paiement au 3eme jour, l'escouade est bannie de la Base Alpha.")
+		};
+
+		for (int32 i = 0; i < QuotaLines.Num(); ++i)
+		{
+			FCanvasTextItem LineText(FVector2D(BoxX + 30.0f, ContentY + 28.0f + i * 26.0f),
+				FText::FromString(QuotaLines[i]), GEngine->GetSmallFont(), (i <= 5) ? CRTColor : CRTAmber);
+			Canvas->DrawItem(LineText);
+		}
+	}
+	else if (TerminalActiveTab == 3)
+	{
+		// ONGLET 4 : DOSSIERS BESTIAIRE & SURVIE
+		FCanvasTextItem BestiaryTitle(FVector2D(BoxX + 30.0f, ContentY),
+			FText::FromString(TEXT("DOSSIERS DE VULNERABILITE DU BESTIAIRE M.E.G.")),
+			GEngine->GetMediumFont(), CRTColor);
+		Canvas->DrawItem(BestiaryTitle);
+
+		TArray<FString> BestiaryLines = {
+			TEXT(""),
+			TEXT("1. SMILER (L'Entite Souriante) :"),
+			TEXT("   - Eteindre IMPERATIVEMENT torches et lampes frontales des detection de la lueur des dents."),
+			TEXT("   - Maintenir un contact visuel fixe sans ciller. Reculer lentement. Ne JAMAIS tourner le dos."),
+			TEXT(""),
+			TEXT("2. HOUND (Le Molosse) :"),
+			TEXT("   - Traque a l'ouie (RMS acoustique > 0.03 = declenchement immediat de la charge)."),
+			TEXT("   - Silence radio absolu. S'accroupir pour etouffer les bruits de pas. Intimidation frontale < 4m."),
+			TEXT(""),
+			TEXT("3. SKIN-STEALER (L'Ecorcheur) :"),
+			TEXT("   - Usurpation d'identite d'agents morts. Verifier le signal sas ou mot de passe oral."),
+			TEXT(""),
+			TEXT("4. PARTYGOER (L'Hote de Fete) :"),
+			TEXT("   - Ne jamais s'approcher ni toucher. Falsifie les transmissions radio avec des emoticones '=)'.")
+		};
+
+		for (int32 i = 0; i < BestiaryLines.Num(); ++i)
+		{
+			FCanvasTextItem LineText(FVector2D(BoxX + 30.0f, ContentY + 28.0f + i * 26.0f),
+				FText::FromString(BestiaryLines[i]), GEngine->GetSmallFont(), (i % 4 == 1) ? CRTAmber : CRTColor);
+			Canvas->DrawItem(LineText);
+		}
+	}
+
+	// Pied de page / Raccourcis
+	const float FooterY = BoxY + BoxH - 35.0f;
+	Canvas->K2_DrawLine(FVector2D(BoxX, FooterY), FVector2D(BoxX + BoxW, FooterY), 1.0f, CRTColor);
+	FCanvasTextItem FooterText(FVector2D(BoxX + 20.0f, FooterY + 8.0f),
+		FText::FromString(TEXT("[1-4 / TAB] Onglet   |   [W/S / Fleches] Naviguer   |   [ENTREE / ESPACE] Confirmer / Acheter   |   [ECHAP / E] Quitter")),
+		GEngine->GetSmallFont(), CRTAmber);
+	Canvas->DrawItem(FooterText);
+}
+

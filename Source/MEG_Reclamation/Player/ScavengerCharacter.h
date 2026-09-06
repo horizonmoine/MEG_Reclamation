@@ -475,6 +475,8 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Scavenger|Input")
 	TSoftObjectPtr<UInputAction> InputActionFieldManual;
 
+	bool bEnhancedInputBound = false;
+
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Scavenger|Camera")
 	TObjectPtr<UStaticMeshComponent> FirstPersonToolMesh;

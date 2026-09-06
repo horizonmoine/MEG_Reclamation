@@ -398,6 +398,7 @@ void AScavengerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 	if (UInputAction* MoveAction = InputActionMove.LoadSynchronous())
 	{
 		EnhancedInput->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AScavengerCharacter::HandleMove);
+		bEnhancedInputBound = true;
 	}
 	if (UInputAction* LookAction = InputActionLook.LoadSynchronous())
 	{
@@ -474,8 +475,13 @@ void AScavengerCharacter::HandleMove(const FInputActionValue& Value)
 		return;
 	}
 
-	AddMovementInput(GetActorForwardVector(), Axis.Y);
-	AddMovementInput(GetActorRightVector(), Axis.X);
+	const FRotator ControlRot = Controller->GetControlRotation();
+	const FRotator YawRotation(0.0f, ControlRot.Yaw, 0.0f);
+	const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+	const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+
+	AddMovementInput(ForwardDirection, Axis.Y);
+	AddMovementInput(RightDirection, Axis.X);
 
 	if (TetheredPartner.IsValid())
 	{
@@ -499,27 +505,51 @@ void AScavengerCharacter::HandleLook(const FInputActionValue& Value)
 
 void AScavengerCharacter::FallbackMoveForward(float Val)
 {
+	if (bEnhancedInputBound)
+	{
+		return;
+	}
+
 	if (FMath::Abs(Val) > 0.01f && Controller && !bIsHypnotized)
 	{
-		AddMovementInput(GetActorForwardVector(), Val);
+		const FRotator ControlRot = Controller->GetControlRotation();
+		const FRotator YawRotation(0.0f, ControlRot.Yaw, 0.0f);
+		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+		AddMovementInput(ForwardDirection, Val);
 	}
 }
 
 void AScavengerCharacter::FallbackMoveRight(float Val)
 {
+	if (bEnhancedInputBound)
+	{
+		return;
+	}
+
 	if (FMath::Abs(Val) > 0.01f && Controller && !bIsHypnotized)
 	{
-		AddMovementInput(GetActorRightVector(), Val);
+		const FRotator ControlRot = Controller->GetControlRotation();
+		const FRotator YawRotation(0.0f, ControlRot.Yaw, 0.0f);
+		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+		AddMovementInput(RightDirection, Val);
 	}
 }
 
 void AScavengerCharacter::FallbackTurn(float Val)
 {
+	if (bEnhancedInputBound)
+	{
+		return;
+	}
 	AddControllerYawInput(Val);
 }
 
 void AScavengerCharacter::FallbackLookUp(float Val)
 {
+	if (bEnhancedInputBound)
+	{
+		return;
+	}
 	AddControllerPitchInput(Val);
 }
 

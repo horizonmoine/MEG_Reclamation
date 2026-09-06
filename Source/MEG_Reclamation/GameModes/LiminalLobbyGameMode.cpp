@@ -37,6 +37,16 @@ void ALiminalLobbyGameMode::BeginPlay()
 	UWorld* World = GetWorld();
 	if (World && HasAuthority())
 	{
+		// Zone de securite absolue du M.E.G. : elimination stricte de toute entite hostile
+		for (TActorIterator<ACharacter> CharIt(World); CharIt; ++CharIt)
+		{
+			ACharacter* Char = *CharIt;
+			if (Char && !Char->IsA(AScavengerCharacter::StaticClass()))
+			{
+				Char->Destroy();
+			}
+		}
+
 		// S'assurer de la presence du decor de la Base Alpha
 		bool bHasGeometry = false;
 		for (TActorIterator<AStaticMeshActor> It(World); It; ++It)
