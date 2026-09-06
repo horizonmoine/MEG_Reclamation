@@ -42,7 +42,11 @@
 
 		{
 			"Name": "Fab",
-			"Enabled": false
+			"Enabled": true
+		},
+		{
+			"Name": "Bridge",
+			"Enabled": true
 		},
 		{
 			"Name": "PythonScriptPlugin",

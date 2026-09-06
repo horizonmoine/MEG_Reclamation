@@ -28,7 +28,13 @@ void ALiminalMainMenuHUD::BeginPlay()
 	if (APlayerController* PC = GetOwningPlayerController())
 	{
 		PC->bShowMouseCursor = true;
-		PC->SetInputMode(FInputModeUIOnly());
+		PC->bEnableClickEvents = true;
+		PC->bEnableMouseOverEvents = true;
+
+		FInputModeGameAndUI InputMode;
+		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+		InputMode.SetHideCursorDuringCapture(false);
+		PC->SetInputMode(InputMode);
 	}
 
 	LoadCurrentSettings();
@@ -479,21 +485,51 @@ void ALiminalMainMenuHUD::DrawScanlines(float W, float H)
 void ALiminalMainMenuHUD::DrawMenuButton(float X, float Y, float Width, float Height,
 	const FString& Label, int32 ButtonIndex, bool bSelected)
 {
-	const FLinearColor BgColor = bSelected
-		? FLinearColor(CRT_Amber.R * 0.15f, CRT_Amber.G * 0.15f, CRT_Amber.B * 0.15f, 0.5f)
-		: FLinearColor(0.03f, 0.03f, 0.02f, 0.3f);
-	const FLinearColor TextColor = bSelected ? CRT_AmberBright : CRT_AmberDim;
+	APlayerController* PC = GetOwningPlayerController();
+	bool bHovered = bSelected;
+
+	if (PC)
+	{
+		float MouseX = 0.0f;
+		float MouseY = 0.0f;
+		if (PC->GetMousePosition(MouseX, MouseY))
+		{
+			if (MouseX >= X && MouseX <= X + Width && MouseY >= Y && MouseY <= Y + Height)
+			{
+				bHovered = true;
+				if (SelectedButtonIndex != ButtonIndex)
+				{
+					SelectedButtonIndex = ButtonIndex;
+				}
+
+				if (PC->WasInputKeyJustPressed(EKeys::LeftMouseButton) && InputCooldown <= 0.0f)
+				{
+					ConfirmSelection();
+					InputCooldown = 0.25f;
+				}
+			}
+		}
+	}
+
+	const FLinearColor BgColor = bHovered
+		? FLinearColor(CRT_Amber.R * 0.25f, CRT_Amber.G * 0.20f, CRT_Amber.B * 0.05f, 0.7f)
+		: FLinearColor(0.03f, 0.03f, 0.02f, 0.35f);
+	const FLinearColor TextColor = bHovered ? CRT_AmberBright : CRT_AmberDim;
 
 	DrawRect(BgColor, X, Y, Width, Height);
 
 	// Bordure gauche d'accentuation si selectionne
-	if (bSelected)
+	if (bHovered)
 	{
-		DrawRect(CRT_AmberBright, X, Y, 3.0f, Height);
+		DrawRect(CRT_AmberBright, X, Y, 4.0f, Height);
 		// Indicateur ">" anime
 		const float PulseOffset = FMath::Sin(TitlePulseTimer * 4.0f) * 3.0f;
 		DrawText(TEXT("▶"), CRT_AmberBright, X + 8.0f + PulseOffset, Y + Height * 0.15f);
 	}
+
+	// Bordure fine
+	DrawRect(bHovered ? CRT_Amber : CRT_AmberDim, X, Y, Width, 1.0f);
+	DrawRect(bHovered ? CRT_Amber : CRT_AmberDim, X, Y + Height - 1.0f, Width, 1.0f);
 
 	const float Scale = FMath::Clamp(Height / 42.0f, 0.5f, 1.5f);
 	DrawText(Label, TextColor, X + 28.0f, Y + Height * 0.2f, nullptr, Scale * 0.9f);
@@ -501,12 +537,28 @@ void ALiminalMainMenuHUD::DrawMenuButton(float X, float Y, float Width, float He
 
 void ALiminalMainMenuHUD::DrawTabBar(float X, float Y, float Width, const TArray<FString>& TabLabels, int32 ActiveTab)
 {
+	APlayerController* PC = GetOwningPlayerController();
+	float MouseX = 0.0f;
+	float MouseY = 0.0f;
+	const bool bHasMouse = PC && PC->GetMousePosition(MouseX, MouseY);
+
 	const float TabW = Width / FMath::Max(1, TabLabels.Num());
 
 	for (int32 i = 0; i < TabLabels.Num(); ++i)
 	{
 		const float TabX = X + TabW * i;
-		const bool bActive = (i == ActiveTab);
+		bool bActive = (i == ActiveTab);
+
+		if (bHasMouse && MouseX >= TabX && MouseX <= TabX + TabW && MouseY >= Y && MouseY <= Y + 30.0f)
+		{
+			if (PC->WasInputKeyJustPressed(EKeys::LeftMouseButton) && InputCooldown <= 0.0f)
+			{
+				CurrentSettingsTab = static_cast<ESettingsTab>(i);
+				SelectedButtonIndex = 0;
+				InputCooldown = 0.25f;
+				bActive = true;
+			}
+		}
 
 		DrawRect(bActive ? FLinearColor(0.08f, 0.06f, 0.02f, 0.7f) : FLinearColor(0.02f, 0.02f, 0.015f, 0.4f),
 			TabX, Y, TabW - 2.0f, 30.0f);
@@ -530,10 +582,16 @@ void ALiminalMainMenuHUD::HandleMenuInput()
 		return;
 	}
 
-	// Ecran titre : n'importe quelle touche
+	// Ecran titre : n'importe quelle touche ou clic souris
 	if (CurrentScreen == EMenuScreen::Title)
 	{
-		if (PC->WasInputKeyJustPressed(EKeys::AnyKey) || PC->WasInputKeyJustPressed(EKeys::Gamepad_FaceButton_Bottom))
+		if (PC->WasInputKeyJustPressed(EKeys::AnyKey) ||
+			PC->WasInputKeyJustPressed(EKeys::LeftMouseButton) ||
+			PC->WasInputKeyJustPressed(EKeys::RightMouseButton) ||
+			PC->WasInputKeyJustPressed(EKeys::Enter) ||
+			PC->WasInputKeyJustPressed(EKeys::SpaceBar) ||
+			PC->WasInputKeyJustPressed(EKeys::E) ||
+			PC->WasInputKeyJustPressed(EKeys::Gamepad_FaceButton_Bottom))
 		{
 			CurrentScreen = EMenuScreen::MainMenu;
 			InputCooldown = 0.3f;
@@ -751,11 +809,14 @@ void ALiminalMainMenuHUD::OnNewExpedition()
 {
 	if (ULiminalGameInstance* GI = Cast<ULiminalGameInstance>(UGameplayStatics::GetGameInstance(this)))
 	{
-		// Reset save data for new expedition
-		GI->LoadGameFromDisk(); // Ensure fresh load
+		GI->LoadGameFromDisk();
+		if (APlayerController* PC = GetOwningPlayerController())
+		{
+			PC->bShowMouseCursor = false;
+			PC->SetInputMode(FInputModeGameOnly());
+		}
+		GI->ReturnToHub();
 	}
-	CurrentScreen = EMenuScreen::HostLobby;
-	SelectedButtonIndex = 0;
 }
 
 void ALiminalMainMenuHUD::OnContinueGame()
@@ -763,6 +824,11 @@ void ALiminalMainMenuHUD::OnContinueGame()
 	if (ULiminalGameInstance* GI = Cast<ULiminalGameInstance>(UGameplayStatics::GetGameInstance(this)))
 	{
 		GI->LoadGameFromDisk();
+		if (APlayerController* PC = GetOwningPlayerController())
+		{
+			PC->bShowMouseCursor = false;
+			PC->SetInputMode(FInputModeGameOnly());
+		}
 		GI->ReturnToHub();
 	}
 }

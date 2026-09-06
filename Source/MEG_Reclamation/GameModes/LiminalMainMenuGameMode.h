@@ -16,4 +16,7 @@ class MEG_RECLAMATION_API ALiminalMainMenuGameMode : public AGameModeBase
 
 public:
 	ALiminalMainMenuGameMode();
+
+	virtual void BeginPlay() override;
+	virtual void PostLogin(APlayerController* NewPlayer) override;
 };
