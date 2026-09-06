@@ -1,7 +1,7 @@
-﻿# BRIEFING — 2026-09-06T02:36:44Z
+﻿# BRIEFING — 2026-09-06T02:44:20Z
 
 ## Mission
-Investigate and formulate the exact C++ implementation plan for AScavengerCharacter 1P/3P skeletal mesh & animation setup for Milestone M1 (F01, F02).
+Investigate and formulate the exact C++ implementation plan for AScavengerCharacter 1P/3P skeletal mesh & animation setup for Milestone M1 (Features F01, F02).
 
 ## 🔒 My Identity
 - Archetype: explorer
@@ -20,19 +20,33 @@ Investigate and formulate the exact C++ implementation plan for AScavengerCharac
 
 ## Current Parent
 - Conversation ID: cab2a832-1822-4815-8f65-dc1aa764c68a
-- Updated: not yet
+- Updated: 2026-09-06T02:44:20Z
 
 ## Investigation State
-- **Explored paths**: None yet
-- **Key findings**: Initialized
-- **Unexplored areas**: ORIGINAL_REQUEST.md, PROJECT.md, ScavengerCharacter (.h/.cpp), Content/Characters/Mannequins/, MegReclamationTests.cpp
+- **Explored paths**:
+  - `Source/MEG_Reclamation/Player/ScavengerCharacter.h` & `.cpp`
+  - `Source/MEG_Reclamation/GameModes/LiminalGameMode.cpp`
+  - `Source/MEG_Reclamation/Tests/MegReclamationTests.cpp`
+  - `Source/MEG_Reclamation/MEG_ReclamationCharacter.h` & `.cpp`
+  - `Content/Characters/Mannequins/Meshes/SKM_Manny_Simple.uasset`
+  - `Content/Characters/Mannequins/Anims/Unarmed/ABP_Unarmed.uasset`
+  - `Content/Characters/Mannequins/Anims/Unarmed/BS_Idle_Walk_Run.uasset`
+  - `Content/FirstPerson/Anims/ABP_FP_Copy.uasset`
+- **Key findings**:
+  - `AScavengerCharacter` is directly spawned as C++ default pawn class without a Blueprint wrapper.
+  - Currently missing `FirstPersonMesh` (USkeletalMeshComponent) and `GetMesh()` is unconfigured.
+  - Assets `SKM_Manny_Simple`, `ABP_Unarmed_C`, and `BS_Idle_Walk_Run` are complete, functional, and fully compatible with `AScavengerCharacter`.
+  - Attaching `FirstPersonMesh` to `FirstPersonCamera` naturally synchronizes with crouch, lean, and crawl offsets.
+  - Baseline automation test suite passes 100% (30/30 tests, Exit Code 0); planned changes are 100% compatible.
+- **Unexplored areas**: None for M1 (F01, F02 scope).
 
 ## Key Decisions Made
-- Initializing investigation following UE5.8 C++ architecture and project guidelines
+- Formulated exact C++ modifications in `analysis.md` and complete 5-component handoff in `handoff.md`.
+- Cleared temporary helper scripts from `.agents/explorer_m1_1/`.
 
 ## Artifact Index
-- F:/MEG_Reclamation/.agents/explorer_m1_1/DISPATCH.md — Dispatch log
-- F:/MEG_Reclamation/.agents/explorer_m1_1/BRIEFING.md — Situational awareness
-- F:/MEG_Reclamation/.agents/explorer_m1_1/progress.md — Liveness heartbeat
-- F:/MEG_Reclamation/.agents/explorer_m1_1/analysis.md — Detailed technical analysis
-- F:/MEG_Reclamation/.agents/explorer_m1_1/handoff.md — 5-component handoff report
+- `F:/MEG_Reclamation/.agents/explorer_m1_1/DISPATCH.md` — Dispatch log
+- `F:/MEG_Reclamation/.agents/explorer_m1_1/BRIEFING.md` — Persistent situational awareness
+- `F:/MEG_Reclamation/.agents/explorer_m1_1/progress.md` — Liveness heartbeat
+- `F:/MEG_Reclamation/.agents/explorer_m1_1/analysis.md` — Detailed technical analysis report
+- `F:/MEG_Reclamation/.agents/explorer_m1_1/handoff.md` — Self-contained 5-component handoff report
