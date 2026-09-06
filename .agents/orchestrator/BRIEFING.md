@@ -1,4 +1,4 @@
-﻿# BRIEFING — 2026-09-06T02:36:50Z
+﻿# BRIEFING — 2026-09-06T02:49:25Z
 
 ## Mission
 Lead the commercial AAA indie finalization and polish of M.E.G. : Reclamation (Unreal Engine 5.8), fulfilling R1 through R5 and satisfying all Acceptance Criteria.
@@ -17,7 +17,7 @@ Lead the commercial AAA indie finalization and polish of M.E.G. : Reclamation (U
 2. **Dispatch & Execute**:
    - Milestone 1: Skeletal Animation & Bestiary (R1) [in-progress]
    - Milestone 2: Proximity Voice & Audio Submixes (R2) [pending]
-   - Milestone 3: Extraction Loop, Airlock & Quota Economy (R3) [pending]
+   - Milestone 3: Extraction Loop, Airlock & Quota Economy [pending]
    - Milestone 4: Steam Integration & Matchmaking (R4) [pending]
    - Milestone 5: Visual Polish, Scalability & Gamepad UI (R5) [pending]
    - Milestone 6: Final Acceptance & Release Certification [pending]
@@ -33,7 +33,7 @@ Lead the commercial AAA indie finalization and polish of M.E.G. : Reclamation (U
   6. M5: Visual Polish & Scalability [pending]
   7. M6: Final Acceptance & Release Certification [pending]
 - **Current phase**: 1 (Milestone 1 execution)
-- **Current focus**: Milestone 1 exploration across Scavenger, Entity C++/AnimNotify, and Bestiary Rigging.
+- **Current focus**: Milestone 1 Worker implementing Scavenger 1P/3P, LiminalEntity skeletal migration, AnimNotify sweeps, and Bestiary rigging.
 
 ## 🔒 Key Constraints
 - DISPATCH-ONLY: NEVER write, modify, or create source code files directly.
@@ -51,19 +51,18 @@ Lead the commercial AAA indie finalization and polish of M.E.G. : Reclamation (U
 - Selected Project Pattern.
 - Completed Phase 0 Survey, created PROJECT.md.
 - Marked Milestone 1 IN_PROGRESS in PROJECT.md.
-- Dispatched 3 parallel Explorers for Milestone 1 (Scavenger, Entity C++, Bestiary Rigging).
+- Completed M1 Explorations (M1_1, M1_2, M1_3).
+- Dispatched Worker M1_1 to execute C++ modifications, Blender procedural generation, and build/test verification.
 
 ## Team Roster
 | Agent | Type | Work Item | Status | Conv ID |
 |-------|------|-----------|--------|---------|
-| explorer_m1_1 | teamwork_preview_explorer | M1: Scavenger 1P/3P Animation Architecture | in-progress | 50ae4529-2a80-455c-a41f-e25f50d4b336 |
-| explorer_m1_2 | teamwork_preview_explorer | M1: Entity C++ & AnimNotify Damage Sweeps | in-progress | 82f74e7a-dc39-4b56-9b12-d1bb8f0b7e5d |
-| explorer_m1_3 | teamwork_preview_explorer | M1: Bestiary Rigging, Blendspaces & Audio | in-progress | 7f402b1b-c6d4-490d-9889-85a5be63ff63 |
+| worker_m1_1 | teamwork_preview_worker | M1 Implementation (Scavenger, Bestiary, AnimNotify) | in-progress | 969c831d-95b9-4e28-bcde-89842bf55387 |
 
 ## Succession Status
 - Succession required: no
-- Spawn count: 8 / 16
-- Pending subagents: 50ae4529-2a80-455c-a41f-e25f50d4b336, 82f74e7a-dc39-4b56-9b12-d1bb8f0b7e5d, 7f402b1b-c6d4-490d-9889-85a5be63ff63
+- Spawn count: 9 / 16
+- Pending subagents: 969c831d-95b9-4e28-bcde-89842bf55387
 - Predecessor: none
 - Successor: not yet spawned
 
@@ -79,3 +78,6 @@ Lead the commercial AAA indie finalization and polish of M.E.G. : Reclamation (U
 - F:/MEG_Reclamation/.agents/orchestrator/BRIEFING.md — Persistent working memory
 - F:/MEG_Reclamation/.agents/orchestrator/progress.md — Liveness and iteration status
 - F:/MEG_Reclamation/PROJECT.md — Global project plan and milestones
+- F:/MEG_Reclamation/.agents/explorer_m1_1/handoff.md — Scavenger Animation Handoff
+- F:/MEG_Reclamation/.agents/explorer_m1_2/handoff.md — Entity AnimNotify Handoff
+- F:/MEG_Reclamation/.agents/explorer_m1_3/handoff.md — Bestiary Rigging Handoff

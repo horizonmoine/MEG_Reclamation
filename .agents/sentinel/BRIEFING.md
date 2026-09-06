@@ -23,7 +23,7 @@ Sentinel monitoring, dispatch, and verification supervision for M.E.G. : Reclama
 ## Project Status
 - **Phase**: in progress
 - **Cron 1 (Progress Reporting)**: task-20 (*/8 * * * *)
-- **Cron 2 (Liveness Check)**: task-22 (*/10 * * * *) — Phase 0 completed, PROJECT.md published (24 features, M1-M6). Milestone 1 (M1: Bestiary & Skeletal Animation) underway.
+- **Cron 2 (Liveness Check)**: task-22 (*/10 * * * *) — Milestone 1 Worker dispatched (worker_m1_1). Implementation underway on Scavenger 1P/3P, AnimNotifies, and 9 entity rigs.
 
 ## Victory Audit Status
 - **Triggered**: no
