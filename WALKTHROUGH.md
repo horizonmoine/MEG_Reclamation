@@ -252,3 +252,29 @@ Ce document enregistre l'avancement chronologique, les améliorations apportées
      - **Livrable Standalone Shipping** : `Builds/Windows/MEG_Reclamation.exe` validé en exécution autonome (`-nullrhi -ExecCmds="Quit"`, Code 0).
      - **Dépôt GitHub privé** : Synchronisé à 100% ([https://github.com/horizonmoine/MEG_Reclamation](https://github.com/horizonmoine/MEG_Reclamation)).
 
+---
+
+## Étape 10 : Refonte Architecturale du Hub Base Alpha & Résolution Définitive des Déplacements ZQSD
+- **Statut** : Complété (100% Validé)
+- **Actions réalisées** :
+  1. **Diagnostic & Résolution Définitive des Déplacements (AZERTY ZQSD / QWERTY WASD)** :
+     - Élimination du conflit de modificateurs Enhanced Input : dans `ScavengerCharacter.cpp`, le binding de `InputActionMove` avec swizzle/negate écrasait les axes analogiques et créait des saccades et pertes d'input en diagonale (`Z`+`D` ou `Z`+`Q`).
+     - Rétablissement des liaisons directes `PlayerInputComponent->BindAxis("MoveForward")`, `BindAxis("MoveRight")`, `BindAxis("Turn")` et `BindAxis("LookUp")` comme gestionnaires principaux, supprimant le verrou `if (bEnhancedInputBound) return;`. Unreal Engine calcule ainsi la somme continue de toutes les touches enfoncées en un seul vecteur fluide.
+     - Ajustement de la dynamique physique FPS : `MaxWalkSpeed = 450.0f` (au lieu de 600.0f flottant), `MaxAcceleration = 2400.0f`, `BrakingDecelerationWalking = 2400.0f`, `GroundFriction = 8.0f` pour des arrêts nets et une maniabilité nerveuse digne de *Lethal Company*.
+     - Amélioration de la détection d'interaction : `SweepMultiByChannel` sphérique de 30 cm et portée de 320 cm pour interagir confortablement avec le terminal sans blocage par l'arête du bureau.
+     - Support complet de la touche `Z` pour la navigation ascendante dans l'interface du terminal M.E.G. (`HandleTerminalInput`).
+  2. **Reconstruction Complète du Hub Base Alpha (12m x 12m)** :
+     - Réduction d'échelle drastique de la salle : passage d'un hangar vide et froid de 480 m² (20x24m) à un avant-poste militaire compact, chaleureux et diégétique de 144 m² (12x12m, 3x3 dalles de 400x400 cm).
+     - Spawn du joueur repositionné en `(-200, 0, 60)` avec orientation directe vers le bureau de commandement (à 3.3m).
+     - Intégration du terminal M.E.G. (`ALiminalTerminalActor`) posé sur le bureau avec échelle ajustée (0.55), halo lumineux cyan et écran CRT immédiatement lisible.
+     - Sas d'incursion / excursion (`ALiminalAirlockActor`) aligné dans l'axe visuel avec panneau lumineux `EXIT` vert d'urgence.
+     - Baie logistique de déchargement du butin (`AExtractionZone`) avec éclairage jaune d'avertissement et caisses de scrap.
+     - Armurerie tactique avec 3 casiers `SM_HidingLocker` et trousses de secours `SM_Medkit_MEG`.
+     - Éclairage d'ambiance avec 4 néons fluorescents chauds (255, 248, 225) et Skylight adouci sans zones d'ombre écrasées.
+     - Mise à jour de `EditorStartupMap` dans `Config/DefaultEngine.ini` vers `Lvl_Hub_BaseAlpha` pour démarrer instantanément dans le Hub.
+  3. **Certification & Validation** :
+     - **Compilation C++ MSVC** : **8/8 actions compilées sans erreur** (Exit Code 0).
+     - **Suite d'automatisation native UE 5.8** : **30/30 tests passés avec SUCCÈS** (Exit Code 0).
+     - **Audit d'intégrité global** : **31/31 contrôles validés** (Exit Code 0).
+     - **Packaging Standalone Shipping** : `Builds/Windows/MEG_Reclamation.exe` généré et prêt à jouer.
+

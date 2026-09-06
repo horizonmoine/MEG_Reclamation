@@ -536,7 +536,7 @@ private:
 	void UpdateBreathing(float DeltaSeconds);
 	bool TraceForInteractable(AActor*& OutActor) const;
 
-	float BaseWalkSpeed = 600.0f;
+	float BaseWalkSpeed = 450.0f;
 	float TimeSinceStaminaDrain = 0.0f;
 	float FootstepNoiseTimer = 0.0f;
 	float TimeToNextHallucination = 8.0f;

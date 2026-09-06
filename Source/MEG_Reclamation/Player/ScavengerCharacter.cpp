@@ -69,6 +69,13 @@ AScavengerCharacter::AScavengerCharacter()
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
 	{
 		Movement->bOrientRotationToMovement = false;
+		Movement->MaxWalkSpeed = 450.0f;
+		Movement->MaxAcceleration = 2400.0f;
+		Movement->BrakingDecelerationWalking = 2400.0f;
+		Movement->GroundFriction = 8.0f;
+		Movement->bCanWalkOffLedges = true;
+		Movement->bCanWalkOffLedgesWhenCrouching = true;
+		Movement->GetNavAgentPropertiesRef().bCanCrouch = true;
 	}
 
 	SanityPostProcess = CreateDefaultSubobject<ULiminalSanityPostProcessComponent>(TEXT("SanityPostProcess"));
@@ -395,15 +402,8 @@ void AScavengerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 		return;
 	}
 
-	if (UInputAction* MoveAction = InputActionMove.LoadSynchronous())
-	{
-		EnhancedInput->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AScavengerCharacter::HandleMove);
-		bEnhancedInputBound = true;
-	}
-	if (UInputAction* LookAction = InputActionLook.LoadSynchronous())
-	{
-		EnhancedInput->BindAction(LookAction, ETriggerEvent::Triggered, this, &AScavengerCharacter::HandleLook);
-	}
+	// Les axes de deplacement (ZQSD / WASD / Fleches) et de camera (Souris) sont geres nativement
+	// et sans conflit par les BindAxis ci-dessus, garantissant zero saccade diagonale.
 	if (UInputAction* JumpAction = InputActionJump.LoadSynchronous())
 	{
 		EnhancedInput->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
@@ -505,12 +505,7 @@ void AScavengerCharacter::HandleLook(const FInputActionValue& Value)
 
 void AScavengerCharacter::FallbackMoveForward(float Val)
 {
-	if (bEnhancedInputBound)
-	{
-		return;
-	}
-
-	if (FMath::Abs(Val) > 0.01f && Controller && !bIsHypnotized)
+	if (FMath::Abs(Val) > 0.001f && Controller && !bIsHypnotized)
 	{
 		const FRotator ControlRot = Controller->GetControlRotation();
 		const FRotator YawRotation(0.0f, ControlRot.Yaw, 0.0f);
@@ -521,12 +516,7 @@ void AScavengerCharacter::FallbackMoveForward(float Val)
 
 void AScavengerCharacter::FallbackMoveRight(float Val)
 {
-	if (bEnhancedInputBound)
-	{
-		return;
-	}
-
-	if (FMath::Abs(Val) > 0.01f && Controller && !bIsHypnotized)
+	if (FMath::Abs(Val) > 0.001f && Controller && !bIsHypnotized)
 	{
 		const FRotator ControlRot = Controller->GetControlRotation();
 		const FRotator YawRotation(0.0f, ControlRot.Yaw, 0.0f);
@@ -537,20 +527,18 @@ void AScavengerCharacter::FallbackMoveRight(float Val)
 
 void AScavengerCharacter::FallbackTurn(float Val)
 {
-	if (bEnhancedInputBound)
+	if (FMath::Abs(Val) > 0.0001f)
 	{
-		return;
+		AddControllerYawInput(Val);
 	}
-	AddControllerYawInput(Val);
 }
 
 void AScavengerCharacter::FallbackLookUp(float Val)
 {
-	if (bEnhancedInputBound)
+	if (FMath::Abs(Val) > 0.0001f)
 	{
-		return;
+		AddControllerPitchInput(Val);
 	}
-	AddControllerPitchInput(Val);
 }
 
 void AScavengerCharacter::ToggleHeadlamp()
@@ -1947,24 +1935,20 @@ void AScavengerCharacter::Interact()
 	}
 
 	const FVector TraceStart = FirstPersonCamera->GetComponentLocation();
-	const FVector TraceEnd = TraceStart + (FirstPersonCamera->GetForwardVector() * 250.0f);
+	const FVector TraceEnd = TraceStart + (FirstPersonCamera->GetForwardVector() * 320.0f);
 
-	FHitResult HitResult;
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(this);
 
-	if (GetWorld()->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECC_Visibility, Params))
+	TArray<FHitResult> HitResults;
+	GetWorld()->SweepMultiByChannel(HitResults, TraceStart, TraceEnd, FQuat::Identity, ECC_Visibility, FCollisionShape::MakeSphere(30.0f), Params);
+
+	for (const FHitResult& Hit : HitResults)
 	{
-		AActor* HitActor = HitResult.GetActor();
+		AActor* HitActor = Hit.GetActor();
 		if (!HitActor)
 		{
-			return;
-		}
-
-		if (ALiminalDoorActor* Door = Cast<ALiminalDoorActor>(HitActor))
-		{
-			Door->Interact(this);
-			return;
+			continue;
 		}
 
 		if (ALiminalTerminalActor* Terminal = Cast<ALiminalTerminalActor>(HitActor))
@@ -1976,6 +1960,12 @@ void AScavengerCharacter::Interact()
 		if (ALiminalAirlockActor* Airlock = Cast<ALiminalAirlockActor>(HitActor))
 		{
 			Airlock->Interact(this);
+			return;
+		}
+
+		if (ALiminalDoorActor* Door = Cast<ALiminalDoorActor>(HitActor))
+		{
+			Door->Interact(this);
 			return;
 		}
 

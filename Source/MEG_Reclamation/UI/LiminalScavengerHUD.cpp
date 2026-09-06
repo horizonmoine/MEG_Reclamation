@@ -1027,7 +1027,7 @@ void ALiminalScavengerHUD::HandleTerminalInput()
 
 	if (MaxItems > 0)
 	{
-		if (PC->WasInputKeyJustPressed(EKeys::Up) || PC->WasInputKeyJustPressed(EKeys::W))
+		if (PC->WasInputKeyJustPressed(EKeys::Up) || PC->WasInputKeyJustPressed(EKeys::W) || PC->WasInputKeyJustPressed(EKeys::Z))
 		{
 			TerminalSelectedIndex = (TerminalSelectedIndex - 1 + MaxItems) % MaxItems;
 			TerminalInputCooldown = 0.12f;
