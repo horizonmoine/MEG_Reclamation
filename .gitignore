@@ -1,0 +1,39 @@
+﻿# ====================================
+# Unreal Engine 5 .gitignore
+# ====================================
+
+# Binaries & Intermediate
+Binaries/*
+Plugins/*/Binaries/*
+Intermediate/*
+Plugins/*/Intermediate/*
+Saved/*
+DerivedDataCache/*
+Build/*
+Builds/*
+
+# IDE and Project Files
+.vs/*
+.vscode/*
+.idea/*
+*.sln
+*.slnx
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+
+# Compilation Artifacts
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+
+# OS & Temp Files
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+$null
