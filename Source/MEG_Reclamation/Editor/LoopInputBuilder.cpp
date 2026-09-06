@@ -45,7 +45,8 @@ namespace MEG_LoopInputBuilder
 		const FString Filename = FPackageName::LongPackageNameToFilename(
 			Package->GetName(), FPackageName::GetAssetPackageExtension());
 
-		if (FPaths::FileExists(Filename))
+		// Si l'action existe deja sur disque et n'est pas le mapping context principal, ne pas forcer la re-ecriture
+		if (!Asset->IsA<UInputMappingContext>() && FPaths::FileExists(Filename))
 		{
 			return true;
 		}

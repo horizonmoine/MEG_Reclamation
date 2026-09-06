@@ -376,7 +376,7 @@ void AScavengerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 
 	// Touches directes universelles de secours
 	PlayerInputComponent->BindKey(EKeys::E, IE_Pressed, this, &AScavengerCharacter::Interact);
-	PlayerInputComponent->BindKey(EKeys::F, IE_Pressed, this, &AScavengerCharacter::Interact);
+	PlayerInputComponent->BindKey(EKeys::F, IE_Pressed, this, &AScavengerCharacter::HandleToggleHeadlamp);
 	PlayerInputComponent->BindKey(EKeys::C, IE_Pressed, this, &AScavengerCharacter::StartCrouch);
 	PlayerInputComponent->BindKey(EKeys::C, IE_Released, this, &AScavengerCharacter::StopCrouch);
 	PlayerInputComponent->BindKey(EKeys::LeftControl, IE_Pressed, this, &AScavengerCharacter::StartCrouch);
@@ -384,9 +384,9 @@ void AScavengerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 	PlayerInputComponent->BindKey(EKeys::N, IE_Pressed, this, &AScavengerCharacter::ToggleNightVision);
 	PlayerInputComponent->BindKey(EKeys::X, IE_Pressed, this, &AScavengerCharacter::DropCarriedLootOnGround);
 
-	// Liaisons directes pour le lancer physique de butin (style R.E.P.O.)
-	PlayerInputComponent->BindKey(EKeys::G, IE_Pressed, this, &AScavengerCharacter::InputThrowLoot);
-	PlayerInputComponent->BindKey(EKeys::RightMouseButton, IE_Pressed, this, &AScavengerCharacter::InputThrowLoot);
+	// Liaisons directes pour le lancer physique et la prise (conforme a DefaultInput.ini)
+	PlayerInputComponent->BindKey(EKeys::R, IE_Pressed, this, &AScavengerCharacter::InputThrowLoot);
+	PlayerInputComponent->BindKey(EKeys::RightMouseButton, IE_Pressed, this, &AScavengerCharacter::HandleGrabPressed);
 
 	// 2. Enhanced Input system
 	UEnhancedInputComponent* EnhancedInput = Cast<UEnhancedInputComponent>(PlayerInputComponent);

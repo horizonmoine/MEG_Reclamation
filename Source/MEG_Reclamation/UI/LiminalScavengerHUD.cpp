@@ -13,6 +13,12 @@
 #include "Objects/LiminalTerminalActor.h"
 #include "Objects/LiminalKeypadActor.h"
 #include "Objects/LiminalBreakerActor.h"
+#include "Objects/LiminalDoorActor.h"
+#include "Objects/LiminalHidingSpot.h"
+#include "Objects/LiminalVentActor.h"
+#include "Objects/LiminalKeyItemActor.h"
+#include "Objects/LiminalValvePuzzleActor.h"
+#include "Objects/LiminalFuseBoxActor.h"
 #include "EngineUtils.h"
 
 ALiminalScavengerHUD::ALiminalScavengerHUD()
@@ -161,8 +167,8 @@ void ALiminalScavengerHUD::DrawReticle(AScavengerCharacter* Scavenger, float Cen
 	else if (Scavenger->GetHeldLoot())
 	{
 		ReticleColor = FLinearColor(1.0f, 0.8f, 0.1f, 1.0f); // Ambre maintien
-		FCanvasTextItem HoldItem(FVector2D(CenterX - 85.0f, CenterY + 20.0f),
-			FText::FromString(TEXT("[E] Deposer  |  [G / Clic-Droit] Lancer")), GEngine->GetSmallFont(), FLinearColor::Yellow);
+		FCanvasTextItem HoldItem(FVector2D(CenterX - 110.0f, CenterY + 20.0f),
+			FText::FromString(TEXT("[X] Deposer au sol  |  [R / Clic-Droit] Lancer")), GEngine->GetSmallFont(), FLinearColor::Yellow);
 		HoldItem.EnableShadow(FLinearColor::Black);
 		Canvas->DrawItem(HoldItem);
 	}
@@ -177,25 +183,49 @@ void ALiminalScavengerHUD::DrawReticle(AScavengerCharacter* Scavenger, float Cen
 			const FVector CamForward = Scavenger->GetControlRotation().Vector();
 			if (World->LineTraceSingleByChannel(Hit, CamLoc, CamLoc + CamForward * 320.0f, ECC_Visibility, QueryParams))
 			{
-				if (Hit.GetActor())
+				if (AActor* TargetActor = Hit.GetActor())
 				{
-					if (Hit.GetActor()->IsA(ALiminalTerminalActor::StaticClass()))
+					if (TargetActor->IsA(ALiminalTerminalActor::StaticClass()))
 					{
 						ReticleColor = FLinearColor(0.2f, 0.8f, 1.0f, 1.0f);
-						FCanvasTextItem PromptItem(FVector2D(CenterX - 85.0f, CenterY + 20.0f),
+						FCanvasTextItem PromptItem(FVector2D(CenterX - 95.0f, CenterY + 20.0f),
 							FText::FromString(TEXT("[E] Terminal M.E.G. (Missions & Magasin)")), GEngine->GetSmallFont(), FLinearColor(0.0f, 1.0f, 1.0f));
 						PromptItem.EnableShadow(FLinearColor::Black);
 						Canvas->DrawItem(PromptItem);
 					}
-					else if (Hit.GetActor()->IsA(ALiminalAirlockActor::StaticClass()))
+					else if (TargetActor->IsA(ALiminalAirlockActor::StaticClass()))
 					{
 						ReticleColor = FLinearColor(1.0f, 0.7f, 0.2f, 1.0f);
-						FCanvasTextItem PromptItem(FVector2D(CenterX - 65.0f, CenterY + 20.0f),
-							FText::FromString(TEXT("[E] Sas d'Incursion M.E.G.")), GEngine->GetSmallFont(), FLinearColor(1.0f, 0.85f, 0.3f));
+						FCanvasTextItem PromptItem(FVector2D(CenterX - 75.0f, CenterY + 20.0f),
+							FText::FromString(TEXT("[E] Sas d'Incursion M.E.G. (Depart)")), GEngine->GetSmallFont(), FLinearColor(1.0f, 0.85f, 0.3f));
 						PromptItem.EnableShadow(FLinearColor::Black);
 						Canvas->DrawItem(PromptItem);
 					}
-					else if (Hit.GetActor()->IsA(ALiminalKeypadActor::StaticClass()))
+					else if (TargetActor->IsA(ALiminalDoorActor::StaticClass()))
+					{
+						ReticleColor = FLinearColor(0.3f, 0.9f, 0.5f, 1.0f);
+						FCanvasTextItem PromptItem(FVector2D(CenterX - 70.0f, CenterY + 20.0f),
+							FText::FromString(TEXT("[E] Ouvrir / Fermer la Porte")), GEngine->GetSmallFont(), FLinearColor(0.4f, 1.0f, 0.6f));
+						PromptItem.EnableShadow(FLinearColor::Black);
+						Canvas->DrawItem(PromptItem);
+					}
+					else if (TargetActor->IsA(ALiminalHidingSpot::StaticClass()))
+					{
+						ReticleColor = FLinearColor(0.2f, 0.7f, 1.0f, 1.0f);
+						FCanvasTextItem PromptItem(FVector2D(CenterX - 80.0f, CenterY + 20.0f),
+							FText::FromString(TEXT("[E] Se Cacher dans le Casier")), GEngine->GetSmallFont(), FLinearColor(0.3f, 0.9f, 1.0f));
+						PromptItem.EnableShadow(FLinearColor::Black);
+						Canvas->DrawItem(PromptItem);
+					}
+					else if (TargetActor->IsA(ALiminalVentActor::StaticClass()))
+					{
+						ReticleColor = FLinearColor(0.8f, 0.8f, 0.3f, 1.0f);
+						FCanvasTextItem PromptItem(FVector2D(CenterX - 85.0f, CenterY + 20.0f),
+							FText::FromString(TEXT("[E] Ramper dans le Conduit")), GEngine->GetSmallFont(), FLinearColor(0.9f, 0.9f, 0.4f));
+						PromptItem.EnableShadow(FLinearColor::Black);
+						Canvas->DrawItem(PromptItem);
+					}
+					else if (TargetActor->IsA(ALiminalKeypadActor::StaticClass()))
 					{
 						ReticleColor = FLinearColor(0.9f, 0.3f, 1.0f, 1.0f);
 						FCanvasTextItem PromptItem(FVector2D(CenterX - 85.0f, CenterY + 20.0f),
@@ -203,11 +233,35 @@ void ALiminalScavengerHUD::DrawReticle(AScavengerCharacter* Scavenger, float Cen
 						PromptItem.EnableShadow(FLinearColor::Black);
 						Canvas->DrawItem(PromptItem);
 					}
-					else if (Hit.GetActor()->IsA(ALiminalBreakerActor::StaticClass()))
+					else if (TargetActor->IsA(ALiminalBreakerActor::StaticClass()))
 					{
 						ReticleColor = FLinearColor(0.2f, 1.0f, 0.7f, 1.0f);
 						FCanvasTextItem PromptItem(FVector2D(CenterX - 85.0f, CenterY + 20.0f),
 							FText::FromString(TEXT("[E] Disjoncteur Mural [Basculer Alimentation]")), GEngine->GetSmallFont(), FLinearColor(0.4f, 1.0f, 0.8f));
+						PromptItem.EnableShadow(FLinearColor::Black);
+						Canvas->DrawItem(PromptItem);
+					}
+					else if (TargetActor->IsA(ALiminalValvePuzzleActor::StaticClass()))
+					{
+						ReticleColor = FLinearColor(1.0f, 0.5f, 0.2f, 1.0f);
+						FCanvasTextItem PromptItem(FVector2D(CenterX - 75.0f, CenterY + 20.0f),
+							FText::FromString(TEXT("[E] Tourner la Vanne a Pression")), GEngine->GetSmallFont(), FLinearColor(1.0f, 0.6f, 0.3f));
+						PromptItem.EnableShadow(FLinearColor::Black);
+						Canvas->DrawItem(PromptItem);
+					}
+					else if (TargetActor->IsA(ALiminalFuseBoxActor::StaticClass()))
+					{
+						ReticleColor = FLinearColor(0.9f, 0.9f, 0.2f, 1.0f);
+						FCanvasTextItem PromptItem(FVector2D(CenterX - 85.0f, CenterY + 20.0f),
+							FText::FromString(TEXT("[E] Boitier de Fusibles [Manipuler]")), GEngine->GetSmallFont(), FLinearColor(1.0f, 1.0f, 0.3f));
+						PromptItem.EnableShadow(FLinearColor::Black);
+						Canvas->DrawItem(PromptItem);
+					}
+					else if (TargetActor->IsA(ALiminalKeyItemActor::StaticClass()))
+					{
+						ReticleColor = FLinearColor(0.3f, 1.0f, 0.8f, 1.0f);
+						FCanvasTextItem PromptItem(FVector2D(CenterX - 70.0f, CenterY + 20.0f),
+							FText::FromString(TEXT("[E] Ramasser le Badge d'Acces")), GEngine->GetSmallFont(), FLinearColor(0.4f, 1.0f, 0.8f));
 						PromptItem.EnableShadow(FLinearColor::Black);
 						Canvas->DrawItem(PromptItem);
 					}
