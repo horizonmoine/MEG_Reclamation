@@ -56,7 +56,7 @@ Stats répliquées serveur-autoritaire :
 ## 1.7 Bestiaire (noms canoniques unifiés)
 | Entité | Punit quoi | Comportement clé |
 |---|---|---|
-| **Smiler** | L'usage de la lumière | Charge si éclairé, se fige si observé dans le noir |
+| **Smiler** | L'usage de la lumière / le regard direct | Charge si éclairé ou fixé avec ligne de vue ; adaptation M.E.G. conforme à AGENTS.md |
 | **Skinwalker** | Le bruit / la dispersion de l'équipe | Enregistre le micro (buffer circulaire RAM), rejoue la voix pour isoler un joueur |
 | **Hound** | Le mouvement bruyant / la fuite dos tourné | Chasse au bruit, se fige si regardé (mécanique "Ange Pleureur") |
 | **Duller** | L'absence de LIDAR | Invisible à l'œil nu, visible seulement au scanner |
@@ -225,8 +225,8 @@ L'IA réagit aux stimuli sensoriels réels via `UAIPerceptionComponent` natif UE
 
 1. **Smiler (`ALiminalEntity_Smiler`)** :
    - *Comportement* : Rôdeur photophobe invisible dans l'obscurité (seuls ses yeux et son rictus luisent). Reste passif si ignoré dans l'ombre.
-   - *Stimulus* : Charge frénétiquement si le joueur le balaye directement avec sa lampe torche.
-   - *Contre-mesure* : Couper la lampe, fixer son regard sans bouger pour le figer, ou déclencher le Flash Strobe.
+   - *Stimulus* : Charge si éclairé ou fixé directement avec ligne de vue (règle M.E.G., distincte de certaines versions du wiki).
+   - *Contre-mesure* : Rompre la ligne de vue ; ne pas le fixer pour tenter de le figer. Le Flash Strobe peut l'étourdir selon les règles de l'outil. Durée de poursuite et signaux d'anticipation restent à valider en playtest.
 
 2. **Hound (`LiminalAIController`)** :
    - *Comportement* : Prédateur quadrupède aveugle doté d'une ouïe absolue.

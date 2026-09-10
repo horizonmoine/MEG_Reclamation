@@ -128,8 +128,7 @@ void ALiminalLevelGenerator::OnConstruction(const FTransform& Transform)
 #if WITH_EDITOR
 	if (GIsEditor && GetWorld() && !GetWorld()->IsGameWorld() && CurrentLayout.Cells.Num() == 0)
 	{
-		ComputeLayout();
-		BuildVisuals();
+		if (ComputeLayout()) BuildVisuals();
 	}
 #endif
 }
@@ -229,7 +228,13 @@ void ALiminalLevelGenerator::SetBiome(ELevelBiome NewBiome)
 
 void ALiminalLevelGenerator::Generate(int32 InSeed)
 {
+	const int32 PreviousSeed = Seed;
 	Seed = InSeed;
+	if (!ComputeLayout())
+	{
+		Seed = PreviousSeed;
+		return;
+	}
 
 	if (UWorld* World = GetWorld())
 	{
@@ -241,7 +246,6 @@ void ALiminalLevelGenerator::Generate(int32 InSeed)
 
 	if (HasAuthority())
 	{
-		ComputeLayout();
 		BuildVisuals();
 		ClearSpawnedActors();
 		SpawnGameplayActors();
@@ -250,7 +254,6 @@ void ALiminalLevelGenerator::Generate(int32 InSeed)
 	}
 	else
 	{
-		ComputeLayout();
 		BuildVisuals();
 	}
 
@@ -308,8 +311,7 @@ void ALiminalLevelGenerator::Generate(int32 InSeed)
 
 void ALiminalLevelGenerator::OnRep_Seed()
 {
-	ComputeLayout();
-	BuildVisuals();
+	if (ComputeLayout()) BuildVisuals();
 }
 
 void ALiminalLevelGenerator::OnRep_Biome()
@@ -321,8 +323,7 @@ void ALiminalLevelGenerator::OnRep_Biome()
 			AudioSub->SetCurrentBiome(Biome);
 		}
 	}
-	ComputeLayout();
-	BuildVisuals();
+	if (ComputeLayout()) BuildVisuals();
 }
 
 int32 ALiminalLevelGenerator::GetSeed() const
@@ -335,7 +336,7 @@ int32 ALiminalLevelGenerator::GetLayoutHash() const
 	return static_cast<int32>(CurrentLayout.Hash);
 }
 
-void ALiminalLevelGenerator::ComputeLayout()
+bool ALiminalLevelGenerator::ComputeLayout()
 {
 	switch (MapScale)
 	{
@@ -367,10 +368,16 @@ void ALiminalLevelGenerator::ComputeLayout()
 		break;
 	}
 
-	CurrentLayout = FLiminalLayoutBuilder::Generate(Seed, GridWidth, GridHeight,
-		RoomCount, MinRoomSize, MaxRoomSize, ExtraLoopChance);
+	FGeneratedLayout Candidate;
+	if (!FLiminalLayoutBuilder::TryGenerateExpedition(Seed, GridWidth, GridHeight,
+		RoomCount, MinRoomSize, MaxRoomSize, ExtraLoopChance, CellSize, Candidate))
+	{
+		UE_LOG(LogTemp, Error, TEXT("Expedition generation rejected: seed=%d grid=%dx%d cell=%.1f; no connected 80m layout after 20 attempts. Existing geometry retained."), Seed, GridWidth, GridHeight, CellSize);
+		return false;
+	}
+	CurrentLayout = MoveTemp(Candidate);
+	return true;
 }
-
 FVector ALiminalLevelGenerator::CellToWorld(int32 X, int32 Y, float Z) const
 {
 	const float OriginX = -GridWidth * CellSize * 0.5f;
@@ -619,7 +626,8 @@ void ALiminalLevelGenerator::BuildVisuals()
 		}
 
 		
-		if (FMath::FRand() < 0.3f)
+		FRandomStream FlickerStream(static_cast<int32>(static_cast<uint32>(Seed) ^ (static_cast<uint32>(Room.CenterX) * 73856093u) ^ (static_cast<uint32>(Room.CenterY) * 19349663u)));
+		if (FlickerStream.FRand() < 0.3f)
 		{
 			ULiminalFlickerLightComponent* Flicker = NewObject<ULiminalFlickerLightComponent>(Lamp);
 			Flicker->RegisterComponent();
@@ -705,21 +713,8 @@ void ALiminalLevelGenerator::SpawnGameplayActors()
 	SpawnPlayerStarts();
 	SpawnEnvironmentalProps();
 
-	int32 FarthestIndex = 0;
-	float BestDistSq = -1.0f;
-	for (int32 Index = 1; Index < CurrentLayout.Rooms.Num(); ++Index)
-	{
-		const FProcRoom& Room = CurrentLayout.Rooms[Index];
-		const float DistSq = FVector::DistSquared2D(
-			CellToWorld(Room.CenterX, Room.CenterY),
-			CellToWorld(CurrentLayout.Rooms[0].CenterX, CurrentLayout.Rooms[0].CenterY));
-		if (DistSq > BestDistSq)
-		{
-			BestDistSq = DistSq;
-			FarthestIndex = Index;
-		}
-	}
-	SpawnExtraction(CurrentLayout.Rooms[FarthestIndex]);
+	if (!CurrentLayout.Rooms.IsValidIndex(CurrentLayout.ExtractionRoomIndex)) return;
+	SpawnExtraction(CurrentLayout.Rooms[CurrentLayout.ExtractionRoomIndex]);
 
 	SpawnLoots();
 	SpawnHounds();
@@ -1083,10 +1078,35 @@ void ALiminalLevelGenerator::SpawnHounds()
 	const float ScaleFactor = FMath::Clamp(GridWidth / 24.0f, 1.0f, 3.0f);
 	const int32 ScaledHoundCount = FMath::RoundToInt(HoundCount * ScaleFactor);
 
+	const FVector PlayerSpawnPos = CellToWorld(CurrentLayout.Rooms[0].CenterX, CurrentLayout.Rooms[0].CenterY, 100.0f);
+	constexpr float MinSafetyDistance = 3500.0f; // 35 metres minimum de securite spawn
+
+	TArray<int32> SafeRoomIndices;
+	int32 FurthestRoomIndex = 1;
+	float MaxDistSq = 0.0f;
+	for (int32 R = 1; R < CurrentLayout.Rooms.Num(); ++R)
+	{
+		const FVector RoomPos = CellToWorld(CurrentLayout.Rooms[R].CenterX, CurrentLayout.Rooms[R].CenterY, 100.0f);
+		const float DistSq = FVector::DistSquared(RoomPos, PlayerSpawnPos);
+		if (DistSq > MaxDistSq)
+		{
+			MaxDistSq = DistSq;
+			FurthestRoomIndex = R;
+		}
+		if (DistSq >= FMath::Square(MinSafetyDistance))
+		{
+			SafeRoomIndices.Add(R);
+		}
+	}
+	if (SafeRoomIndices.Num() == 0)
+	{
+		SafeRoomIndices.Add(FurthestRoomIndex);
+	}
+
 	for (int32 Index = 0; Index < ScaledHoundCount; ++Index)
 	{
-		const int32 RoomIndex = 1 + (HoundStream.RandRange(0, CurrentLayout.Rooms.Num() - 2));
-		const FProcRoom& Room = CurrentLayout.Rooms[RoomIndex % CurrentLayout.Rooms.Num()];
+		const int32 PickedIdx = SafeRoomIndices[HoundStream.RandRange(0, SafeRoomIndices.Num() - 1)];
+		const FProcRoom& Room = CurrentLayout.Rooms[PickedIdx];
 
 		FActorSpawnParameters Params;
 		Params.ObjectFlags |= RF_Transient;
@@ -1121,10 +1141,35 @@ void ALiminalLevelGenerator::SpawnSmilers()
 	const float ScaleFactor = FMath::Clamp(GridWidth / 24.0f, 1.0f, 3.0f);
 	const int32 ScaledSmilerCount = FMath::RoundToInt(SmilerCount * ScaleFactor);
 
+	const FVector PlayerSpawnPos = CellToWorld(CurrentLayout.Rooms[0].CenterX, CurrentLayout.Rooms[0].CenterY, 100.0f);
+	constexpr float MinSafetyDistance = 3500.0f; // 35 metres minimum de securite spawn
+
+	TArray<int32> SafeRoomIndices;
+	int32 FurthestRoomIndex = 1;
+	float MaxDistSq = 0.0f;
+	for (int32 R = 1; R < CurrentLayout.Rooms.Num(); ++R)
+	{
+		const FVector RoomPos = CellToWorld(CurrentLayout.Rooms[R].CenterX, CurrentLayout.Rooms[R].CenterY, 100.0f);
+		const float DistSq = FVector::DistSquared(RoomPos, PlayerSpawnPos);
+		if (DistSq > MaxDistSq)
+		{
+			MaxDistSq = DistSq;
+			FurthestRoomIndex = R;
+		}
+		if (DistSq >= FMath::Square(MinSafetyDistance))
+		{
+			SafeRoomIndices.Add(R);
+		}
+	}
+	if (SafeRoomIndices.Num() == 0)
+	{
+		SafeRoomIndices.Add(FurthestRoomIndex);
+	}
+
 	for (int32 Index = 0; Index < ScaledSmilerCount; ++Index)
 	{
-		const int32 RoomIndex = 1 + (SmilerStream.RandRange(0, CurrentLayout.Rooms.Num() - 2));
-		const FProcRoom& Room = CurrentLayout.Rooms[RoomIndex % CurrentLayout.Rooms.Num()];
+		const int32 PickedIdx = SafeRoomIndices[SmilerStream.RandRange(0, SafeRoomIndices.Num() - 1)];
+		const FProcRoom& Room = CurrentLayout.Rooms[PickedIdx];
 
 		FActorSpawnParameters Params;
 		Params.ObjectFlags |= RF_Transient;
@@ -1158,10 +1203,35 @@ void ALiminalLevelGenerator::SpawnClumps()
 	const float ScaleFactor = FMath::Clamp(GridWidth / 24.0f, 1.0f, 3.0f);
 	const int32 ScaledClumpCount = FMath::RoundToInt(ClumpCount * ScaleFactor);
 
+	const FVector PlayerSpawnPos = CellToWorld(CurrentLayout.Rooms[0].CenterX, CurrentLayout.Rooms[0].CenterY, 100.0f);
+	constexpr float MinSafetyDistance = 3500.0f; // 35 metres minimum de securite spawn
+
+	TArray<int32> SafeRoomIndices;
+	int32 FurthestRoomIndex = 1;
+	float MaxDistSq = 0.0f;
+	for (int32 R = 1; R < CurrentLayout.Rooms.Num(); ++R)
+	{
+		const FVector RoomPos = CellToWorld(CurrentLayout.Rooms[R].CenterX, CurrentLayout.Rooms[R].CenterY, 100.0f);
+		const float DistSq = FVector::DistSquared(RoomPos, PlayerSpawnPos);
+		if (DistSq > MaxDistSq)
+		{
+			MaxDistSq = DistSq;
+			FurthestRoomIndex = R;
+		}
+		if (DistSq >= FMath::Square(MinSafetyDistance))
+		{
+			SafeRoomIndices.Add(R);
+		}
+	}
+	if (SafeRoomIndices.Num() == 0)
+	{
+		SafeRoomIndices.Add(FurthestRoomIndex);
+	}
+
 	for (int32 Index = 0; Index < ScaledClumpCount; ++Index)
 	{
-		const int32 RoomIndex = 1 + (ClumpStream.RandRange(0, CurrentLayout.Rooms.Num() - 2));
-		const FProcRoom& Room = CurrentLayout.Rooms[RoomIndex % CurrentLayout.Rooms.Num()];
+		const int32 PickedIdx = SafeRoomIndices[ClumpStream.RandRange(0, SafeRoomIndices.Num() - 1)];
+		const FProcRoom& Room = CurrentLayout.Rooms[PickedIdx];
 
 		FActorSpawnParameters Params;
 		Params.ObjectFlags |= RF_Transient;
@@ -2029,6 +2099,26 @@ void ALiminalLevelGenerator::SpawnPillarsAndFixtures()
 			const FVector WaterScale(CellSize * Room.SizeX / 400.0f, CellSize * Room.SizeY / 400.0f, 0.1f);
 			FTransform WaterTrans(FRotator::ZeroRotator, CellToWorld(Room.CenterX, Room.CenterY, 12.0f), WaterScale);
 			WaterInstances->AddInstance(WaterTrans);
+		}
+	}
+
+	// 5. Neons (CeilingLights) dans les couloirs (Level 0 et Level 1)
+	if (Biome == ELevelBiome::Level0_YellowLobby || Biome == ELevelBiome::Level1_HabitableZone)
+	{
+		FRandomStream CorridorRnd(Seed * 23 + 17);
+		for (int32 Y = 1; Y < CurrentLayout.Height - 1; ++Y)
+		{
+			for (int32 X = 1; X < CurrentLayout.Width - 1; ++X)
+			{
+				if (CurrentLayout.GetCell(X, Y) == EProcCellType::Corridor)
+				{
+					if (CorridorRnd.FRand() < 0.35f)
+					{
+						FTransform LightTrans(FRotator::ZeroRotator, CellToWorld(X, Y, WallHeight), FVector(1.0f, 1.0f, 1.0f));
+						CeilingLightInstances->AddInstance(LightTrans);
+					}
+				}
+			}
 		}
 	}
 }

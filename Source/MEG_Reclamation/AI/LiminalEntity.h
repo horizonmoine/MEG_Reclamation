@@ -162,6 +162,8 @@ protected:
 	float AttackCooldownSeconds = 1.5f;
 
 private:
+	// One accepted attack opens one impact window, consumed by its first notify.
+	bool bAttackImpactPending = false;
 	float StunTimer = 0.0f;
 	float CalmTimer = 0.0f;
 	float AttackCooldownTimer = 0.0f;

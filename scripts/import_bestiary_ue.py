@@ -12,6 +12,10 @@ ENTITIES = [
     ("SK_Deathmoth.fbx", "/Game/Characters/Bestiary/Deathmoth", "SK_Deathmoth"),
     ("SK_Clump.fbx", "/Game/Characters/Bestiary/Clump", "SK_Clump"),
     ("SK_Jerry.fbx", "/Game/Characters/Bestiary/Jerry", "SK_Jerry"),
+    ("SK_Smiler.fbx", "/Game/Characters/Bestiary/Smiler", "SK_Smiler"),
+    ("SK_Partygoer.fbx", "/Game/Characters/Bestiary/Partygoer", "SK_Partygoer"),
+    ("SK_SkinStealer.fbx", "/Game/Characters/Bestiary/SkinStealer", "SK_SkinStealer"),
+    ("SK_Hydrolitis.fbx", "/Game/Characters/Bestiary/Hydrolitis", "SK_Hydrolitis"),
 ]
 
 def import_bestiary():

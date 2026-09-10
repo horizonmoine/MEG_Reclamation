@@ -113,7 +113,14 @@ void ULiminalGameInstance::TravelToMission()
 		*BaseMap, static_cast<int32>(SelectedBiome), SelectedMapScale);
 
 	SaveGameToDisk();
-	UGameplayStatics::OpenLevel(World, FName(*TargetMapName));
+	if (World->GetNetMode() == NM_ListenServer || World->GetNetMode() == NM_DedicatedServer)
+	{
+		World->ServerTravel(TargetMapName);
+	}
+	else
+	{
+		UGameplayStatics::OpenLevel(World, FName(*TargetMapName));
+	}
 }
 
 void ULiminalGameInstance::ReturnToHub()
@@ -126,8 +133,16 @@ void ULiminalGameInstance::ReturnToHub()
 
 	const FString HubMap = TEXT("/Game/Maps/Lvl_Hub_BaseAlpha");
 
+	const FString TargetMapName = FString::Printf(TEXT("%s?listen&game=/Script/MEG_Reclamation.LiminalLobbyGameMode"), *HubMap);
 	SaveGameToDisk();
-	UGameplayStatics::OpenLevel(World, FName(*FString::Printf(TEXT("%s?listen&game=/Script/MEG_Reclamation.LiminalLobbyGameMode"), *HubMap)));
+	if (World->GetNetMode() == NM_ListenServer || World->GetNetMode() == NM_DedicatedServer)
+	{
+		World->ServerTravel(TargetMapName);
+	}
+	else
+	{
+		UGameplayStatics::OpenLevel(World, FName(*TargetMapName));
+	}
 }
 
 bool ULiminalGameInstance::SaveGameToDisk()
@@ -161,4 +176,15 @@ bool ULiminalGameInstance::LoadGameFromDisk()
 	SaveData = LoadedObject->Data;
 	OnCreditsChanged.Broadcast(SaveData.TotalBankCredits);
 	return true;
+}
+
+void ULiminalGameInstance::ResetCampaign()
+{
+	SaveData = FLiminalSaveData();
+	SaveData.UnlockedBiomes.Empty();
+	SaveData.UnlockedBiomes.Add(ELevelBiome::Level0_YellowLobby);
+	SaveData.UnlockedBiomes.Add(ELevelBiome::Level1_HabitableZone);
+	SaveData.UnlockedBiomes.Add(ELevelBiome::Level37_Poolrooms);
+	SaveGameToDisk();
+	OnCreditsChanged.Broadcast(SaveData.TotalBankCredits);
 }

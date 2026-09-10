@@ -63,7 +63,7 @@ protected:
 	UFUNCTION()
 	void OnRep_Biome();
 
-	void ComputeLayout();
+	bool ComputeLayout();
 	void BuildVisuals();
 	void ClearSpawnedActors();
 	void SpawnGameplayActors();

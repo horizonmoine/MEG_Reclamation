@@ -42,22 +42,22 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerDrainStamina(float Amount);
 
-	UFUNCTION(Server, Reliable)
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Scavenger|Authority")
 	void ServerAddInventoryWeight(float WeightKg);
 
-	UFUNCTION(Server, Reliable)
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Scavenger|Authority")
 	void ServerRemoveInventoryWeight(float WeightKg);
 
-	UFUNCTION(Server, Reliable)
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Scavenger|Authority")
 	void ServerDrainSanity(float Amount);
 
 	UFUNCTION(BlueprintCallable, Category = "Scavenger|Sanity")
 	void AuthDrainSanity(float Amount);
 
-	UFUNCTION(Server, Reliable)
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Scavenger|Authority")
 	void ServerRestoreSanity(float Amount);
 
-	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Scavenger|Infection")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Scavenger|Infection")
 	void ServerSetInfected(bool bInfected);
 
 	UFUNCTION(BlueprintPure, Category = "Scavenger|Infection")
@@ -126,8 +126,16 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Scavenger|Survival")
 	float GetDownedTimeRemaining() const { return DownedTimeRemaining; }
 
-	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Scavenger|Survival")
+	// Legacy server-only entry point. Clients request on their own possessed pawn.
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Scavenger|Survival")
 	void ServerRevivePlayer(AScavengerCharacter* Reviver);
+
+	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Scavenger|Survival")
+	void ServerRequestRevive(AScavengerCharacter* Target);
+
+	bool CanReviveTarget(const AScavengerCharacter* Target) const;
+
+
 
 	UFUNCTION(BlueprintCallable, Category = "Scavenger|Survival")
 	void EnterDownedState();
@@ -146,6 +154,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Scavenger|Carry")
 	void AddCarriedCredits(int32 Amount);
+
+	UFUNCTION(BlueprintCallable, Category = "Scavenger|Carry")
+	void SetCarriedCredits(int32 Amount);
 
 	UFUNCTION(BlueprintPure, Category = "Scavenger|Tools")
 	FName GetCurrentToolName() const;
@@ -185,6 +196,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Scavenger|Health")
 	void HealAndRestoreSanity(float HealthAmount, float SanityAmount);
+
+	UFUNCTION(BlueprintCallable, Category = "Scavenger|Health")
+	void AuthSetHealthAndSanity(float AbsoluteHealth, float AbsoluteSanity);
 
 	UFUNCTION(BlueprintCallable, Category = "Scavenger|Tools")
 	void DeployEquippedTool();
@@ -247,6 +261,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Scavenger|Interaction")
 	void Interact();
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerInteract();
+
 	UFUNCTION(BlueprintPure, Category = "Scavenger|Interaction")
 	bool IsHiddenInSpot() const { return bIsHiddenInSpot; }
 
@@ -307,6 +324,8 @@ protected:
 	void HandleToggleHeadlamp();
 
 	void FallbackMoveForward(float Val);
+	void FallbackMoveBackward(float Val);
+	void FallbackMoveLeft(float Val);
 	void FallbackMoveRight(float Val);
 	void FallbackTurn(float Val);
 	void FallbackLookUp(float Val);
@@ -377,7 +396,7 @@ protected:
 	float CurrentInventoryWeightKg = 0.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Scavenger|Weight", meta = (ClampMin = "0.05", ClampMax = "1.0"))
-	float WalkSpeedAtMaxWeightFactor = 0.85f;
+	float WalkSpeedAtMaxWeightFactor = 0.35f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Scavenger|Sanity", meta = (ClampMin = "0.0"))
 	float MaxSanity = 100.0f;
@@ -518,6 +537,10 @@ protected:
 	float HallucinationMaxIntervalSeconds = 12.0f;
 
 private:
+	TWeakObjectPtr<AScavengerCharacter> PendingReviveTarget;
+	float ReviveElapsedSeconds = 0.0f;
+	double LastDoorInteractionTime = -1.0;
+	void UpdateRevive(float DeltaSeconds);
 	UPROPERTY(ReplicatedUsing = OnRep_IsSprinting)
 	bool bIsSprinting = false;
 
@@ -594,7 +617,9 @@ private:
 	float LeanSpeed = 10.0f;
 
 	// --- World Interaction ---
+	UPROPERTY(Replicated)
 	bool bIsHiddenInSpot = false;
+	UPROPERTY(Replicated)
 	bool bIsInVent = false;
 	TWeakObjectPtr<ALiminalHidingSpot> CurrentHidingSpot;
 	TWeakObjectPtr<ALiminalVentActor> CurrentVent;

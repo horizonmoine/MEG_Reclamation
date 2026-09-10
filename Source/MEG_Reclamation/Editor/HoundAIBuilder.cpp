@@ -93,7 +93,7 @@ namespace MEG_HoundAIBuilder
 		if (BehaviorTree->RootNode)
 		{
 			BehaviorTree->RootNode->Rename(nullptr, GetTransientPackage(),
-				REN_DontCreateRedirectors | REN_DoNotDirty | REN_ForceNoResetLoaders);
+				REN_DontCreateRedirectors | REN_DoNotDirty | REN_AllowPackageLinkerMismatch);
 			BehaviorTree->RootNode = nullptr;
 		}
 

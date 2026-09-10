@@ -492,6 +492,77 @@ def make_terminal_meg():
     export_fbx(pedestal, os.path.join(PROPS_DIR, 'SM_Terminal_MEG.fbx'))
 
 # ==========================================
+# 9. SM_ServerRack_MEG (Props)
+# ==========================================
+def make_server_rack_meg():
+    reset_scene()
+    m_frame = create_mat('Mat_ServerRack_Frame', (0.1, 0.1, 0.12, 1.0), roughness=0.6, metallic=0.8)
+    m_panel = create_mat('Mat_ServerRack_Panel', (0.05, 0.05, 0.06, 1.0), roughness=0.4, metallic=0.5)
+    m_leds = create_mat('Mat_ServerRack_LEDs', (0.1, 0.8, 0.2, 1.0), roughness=0.2, emissive=(0.2, 1.0, 0.4, 1.0))
+
+    # Rack frame (0.60m x 1.00m x 2.00m)
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, 0, 1.0))
+    frame = bpy.context.active_object
+    frame.scale = (0.60, 1.00, 2.00)
+    bpy.ops.object.transform_apply(scale=True)
+
+    parts = [frame]
+
+    # Server units
+    for z in range(3, 19, 2):
+        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, 0, z * 0.1))
+        unit = bpy.context.active_object
+        unit.scale = (0.58, 0.98, 0.18)
+        bpy.ops.object.transform_apply(scale=True)
+        parts.append(unit)
+
+        # LEDs on the front panel
+        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0.28, -0.48, z * 0.1))
+        led = bpy.context.active_object
+        led.scale = (0.02, 0.02, 0.02)
+        bpy.ops.object.transform_apply(scale=True)
+        parts.append(led)
+
+    for p in parts:
+        p.select_set(True)
+    bpy.context.view_layer.objects.active = frame
+    bpy.ops.object.join()
+
+    finalize_mesh(frame, [m_frame, m_panel, m_leds])
+    export_fbx(frame, os.path.join(PROPS_DIR, 'SM_ServerRack_MEG.fbx'))
+
+# ==========================================
+# 10. SM_MetalCrate_MEG (Props)
+# ==========================================
+def make_metal_crate_meg():
+    reset_scene()
+    m_body = create_mat('Mat_MetalCrate_Body', (0.45, 0.45, 0.48, 1.0), roughness=0.4, metallic=0.85)
+
+    # Main crate body (1.0m x 1.0m x 1.0m)
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, 0, 0.5))
+    body = bpy.context.active_object
+    body.scale = (1.0, 1.0, 1.0)
+    bpy.ops.object.transform_apply(scale=True)
+
+    # Frame trims
+    parts = [body]
+    for x in [-0.5, 0.5]:
+        for y in [-0.5, 0.5]:
+            bpy.ops.mesh.primitive_cube_add(size=1.0, location=(x, y, 0.5))
+            trim = bpy.context.active_object
+            trim.scale = (0.1, 0.1, 1.05)
+            bpy.ops.object.transform_apply(scale=True)
+            parts.append(trim)
+            
+    for p in parts:
+        p.select_set(True)
+    bpy.context.view_layer.objects.active = body
+    bpy.ops.object.join()
+
+    finalize_mesh(body, [m_body])
+    export_fbx(body, os.path.join(PROPS_DIR, 'SM_MetalCrate_MEG.fbx'))
+
+# ==========================================
 # EXECUTE PHASE 2 GENERATION
 # ==========================================
 try:
@@ -519,7 +590,13 @@ try:
     print('Generating SM_Terminal_MEG...')
     make_terminal_meg()
 
-    print('=== ALL 8 PHASE 2 ASSETS GENERATED SUCCESSFULLY ===')
+    print('Generating SM_ServerRack_MEG...')
+    make_server_rack_meg()
+
+    print('Generating SM_MetalCrate_MEG...')
+    make_metal_crate_meg()
+
+    print('=== ALL 10 PHASE 2 ASSETS GENERATED SUCCESSFULLY ===')
 except Exception as e:
     print(f'ERROR DURING PHASE 2 ASSET GENERATION: {e}')
     import traceback

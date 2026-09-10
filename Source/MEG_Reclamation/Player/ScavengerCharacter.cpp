@@ -205,6 +205,14 @@ void AScavengerCharacter::BeginPlay()
 	if (FirstPersonCamera)
 	{
 		StandingCameraZ = FirstPersonCamera->GetRelativeLocation().Z;
+		if (GConfig)
+		{
+			float UserFOV = 90.0f;
+			if (GConfig->GetFloat(TEXT("Gameplay"), TEXT("FOV"), UserFOV, GGameUserSettingsIni))
+			{
+				FirstPersonCamera->SetFieldOfView(FMath::Clamp(UserFOV, 60.0f, 120.0f));
+			}
+		}
 	}
 
 	if (DefaultToolMesh.IsPending())
@@ -244,6 +252,12 @@ void AScavengerCharacter::Tick(float DeltaSeconds)
 
 	if (HasAuthority())
 	{
+		// Exits can complete asynchronously or at the far end of a vent.
+		bIsHiddenInSpot = CurrentHidingSpot.IsValid() && CurrentHidingSpot->GetOccupant() == this;
+		bIsInVent = CurrentVent.IsValid() && CurrentVent->GetOccupant() == this;
+		if (!bIsHiddenInSpot) CurrentHidingSpot.Reset();
+		if (!bIsInVent) CurrentVent.Reset();
+		UpdateRevive(DeltaSeconds);
 		UpdateStamina(DeltaSeconds);
 		EmitFootstepNoise(DeltaSeconds);
 		UpdateCarriedObjectTarget();
@@ -269,8 +283,6 @@ void AScavengerCharacter::Tick(float DeltaSeconds)
 
 	if (HasAuthority())
 	{
-		UpdateSanityPressure(DeltaSeconds);
-
 		if (bIsDowned && !bIsDead)
 		{
 			DownedTimeRemaining -= DeltaSeconds;
@@ -303,6 +315,8 @@ void AScavengerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME_CONDITION(AScavengerCharacter, CurrentHealth, COND_OwnerOnly);
 	DOREPLIFETIME(AScavengerCharacter, bIsDead);
 	DOREPLIFETIME(AScavengerCharacter, bIsDowned);
+	DOREPLIFETIME_CONDITION(AScavengerCharacter, bIsHiddenInSpot, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AScavengerCharacter, bIsInVent, COND_OwnerOnly);
 	DOREPLIFETIME(AScavengerCharacter, DownedTimeRemaining);
 	DOREPLIFETIME(AScavengerCharacter, CurrentToolIndex);
 	DOREPLIFETIME(AScavengerCharacter, OwnedTools);
@@ -395,6 +409,9 @@ void AScavengerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 	PlayerInputComponent->BindKey(EKeys::R, IE_Pressed, this, &AScavengerCharacter::InputThrowLoot);
 	PlayerInputComponent->BindKey(EKeys::RightMouseButton, IE_Pressed, this, &AScavengerCharacter::HandleGrabPressed);
 
+	// Note: Les touches Z/S/Q/D et W/S/A/D sont deja liees via MoveForward et MoveRight
+	// dans DefaultInput.ini. Les doublons BindAxisKey ont ete supprimes pour eviter le doublement de vitesse.
+
 	// 2. Enhanced Input system
 	UEnhancedInputComponent* EnhancedInput = Cast<UEnhancedInputComponent>(PlayerInputComponent);
 	if (!EnhancedInput)
@@ -469,11 +486,14 @@ void AScavengerCharacter::HandleMove(const FInputActionValue& Value)
 		return;
 	}
 
-	const FVector2D Axis = Value.Get<FVector2D>();
-	if (Axis.IsNearlyZero() || !Controller)
+	const FVector2D RawAxis = Value.Get<FVector2D>();
+	if (RawAxis.IsNearlyZero() || !Controller)
 	{
 		return;
 	}
+
+	// Normalisation / clamp composite pour eviter le boost diagonal (sqrt(2))
+	const FVector2D Axis = RawAxis.GetClampedToMaxSize(1.0f);
 
 	const FRotator ControlRot = Controller->GetControlRotation();
 	const FRotator YawRotation(0.0f, ControlRot.Yaw, 0.0f);
@@ -497,10 +517,18 @@ void AScavengerCharacter::HandleMove(const FInputActionValue& Value)
 void AScavengerCharacter::HandleLook(const FInputActionValue& Value)
 {
 	const FVector2D Axis = Value.Get<FVector2D>();
+	float MouseSensitivity = 1.0f;
+	bool bInvertY = false;
+	if (GConfig)
+	{
+		GConfig->GetFloat(TEXT("Gameplay"), TEXT("MouseSensitivity"), MouseSensitivity, GGameUserSettingsIni);
+		GConfig->GetBool(TEXT("Gameplay"), TEXT("InvertY"), bInvertY, GGameUserSettingsIni);
+	}
+	const float SensitivityScale = FMath::Clamp(MouseSensitivity, 0.1f, 5.0f) * 0.45f;
+	const float PitchSign = bInvertY ? -1.0f : 1.0f;
 
-	// Controle camera omnidirectionnel naturel (Yaw horizontal direct, Pitch vertical direct)
-	AddControllerYawInput(Axis.X);
-	AddControllerPitchInput(Axis.Y);
+	AddControllerYawInput(Axis.X * SensitivityScale);
+	AddControllerPitchInput(Axis.Y * SensitivityScale * PitchSign);
 }
 
 void AScavengerCharacter::FallbackMoveForward(float Val)
@@ -510,8 +538,18 @@ void AScavengerCharacter::FallbackMoveForward(float Val)
 		const FRotator ControlRot = Controller->GetControlRotation();
 		const FRotator YawRotation(0.0f, ControlRot.Yaw, 0.0f);
 		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-		AddMovementInput(ForwardDirection, Val);
+		AddMovementInput(ForwardDirection, FMath::Clamp(Val, -1.0f, 1.0f));
 	}
+}
+
+void AScavengerCharacter::FallbackMoveBackward(float Val)
+{
+	FallbackMoveForward(-Val);
+}
+
+void AScavengerCharacter::FallbackMoveLeft(float Val)
+{
+	FallbackMoveRight(-Val);
 }
 
 void AScavengerCharacter::FallbackMoveRight(float Val)
@@ -521,7 +559,7 @@ void AScavengerCharacter::FallbackMoveRight(float Val)
 		const FRotator ControlRot = Controller->GetControlRotation();
 		const FRotator YawRotation(0.0f, ControlRot.Yaw, 0.0f);
 		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
-		AddMovementInput(RightDirection, Val);
+		AddMovementInput(RightDirection, FMath::Clamp(Val, -1.0f, 1.0f));
 	}
 }
 
@@ -529,7 +567,13 @@ void AScavengerCharacter::FallbackTurn(float Val)
 {
 	if (FMath::Abs(Val) > 0.0001f)
 	{
-		AddControllerYawInput(Val);
+		float MouseSensitivity = 1.0f;
+		if (GConfig)
+		{
+			GConfig->GetFloat(TEXT("Gameplay"), TEXT("MouseSensitivity"), MouseSensitivity, GGameUserSettingsIni);
+		}
+		const float SensitivityScale = FMath::Clamp(MouseSensitivity, 0.1f, 5.0f) * 0.45f;
+		AddControllerYawInput(Val * SensitivityScale);
 	}
 }
 
@@ -537,7 +581,16 @@ void AScavengerCharacter::FallbackLookUp(float Val)
 {
 	if (FMath::Abs(Val) > 0.0001f)
 	{
-		AddControllerPitchInput(Val);
+		float MouseSensitivity = 1.0f;
+		bool bInvertY = false;
+		if (GConfig)
+		{
+			GConfig->GetFloat(TEXT("Gameplay"), TEXT("MouseSensitivity"), MouseSensitivity, GGameUserSettingsIni);
+			GConfig->GetBool(TEXT("Gameplay"), TEXT("InvertY"), bInvertY, GGameUserSettingsIni);
+		}
+		const float SensitivityScale = FMath::Clamp(MouseSensitivity, 0.1f, 5.0f) * 0.45f;
+		const float PitchSign = bInvertY ? -1.0f : 1.0f;
+		AddControllerPitchInput(Val * SensitivityScale * PitchSign);
 	}
 }
 
@@ -608,6 +661,20 @@ void AScavengerCharacter::HealAndRestoreSanity(float HealthAmount, float SanityA
 	{
 		CurrentHealth = FMath::Clamp(CurrentHealth + HealthAmount, 0.0f, MaxHealth);
 		CurrentSanity = FMath::Clamp(CurrentSanity + SanityAmount, 0.0f, MaxSanity);
+		OnRep_CurrentHealth();
+		OnRep_CurrentSanity();
+		ClientOnSanityRestored(CurrentSanity / MaxSanity);
+	}
+}
+
+void AScavengerCharacter::AuthSetHealthAndSanity(float AbsoluteHealth, float AbsoluteSanity)
+{
+	if (HasAuthority())
+	{
+		CurrentHealth = FMath::Clamp(AbsoluteHealth, 0.0f, MaxHealth);
+		CurrentSanity = FMath::Clamp(AbsoluteSanity, 0.0f, MaxSanity);
+		bIsDead = (CurrentHealth <= 0.0f);
+		bIsDowned = (CurrentHealth > 0.0f && CurrentHealth <= 15.0f);
 		OnRep_CurrentHealth();
 		OnRep_CurrentSanity();
 		ClientOnSanityRestored(CurrentSanity / MaxSanity);
@@ -1077,14 +1144,14 @@ void AScavengerCharacter::ServerDrainStamina_Implementation(float Amount)
 		return;
 	}
 
-	const float WeightFactor = 1.0f + GetWeightRatio();
+	const float WeightFactor = 1.0f + (GetWeightRatio() * 0.5f);
 	CurrentStamina = FMath::Max(CurrentStamina - Amount * WeightFactor, 0.0f);
 	TimeSinceStaminaDrain = 0.0f;
 }
 
-void AScavengerCharacter::ServerAddInventoryWeight_Implementation(float WeightKg)
+void AScavengerCharacter::ServerAddInventoryWeight(float WeightKg)
 {
-	if (WeightKg <= 0.0f)
+	if (!HasAuthority() || !FMath::IsFinite(WeightKg) || WeightKg <= 0.0f)
 	{
 		return;
 	}
@@ -1092,9 +1159,9 @@ void AScavengerCharacter::ServerAddInventoryWeight_Implementation(float WeightKg
 	CurrentInventoryWeightKg = FMath::Min(CurrentInventoryWeightKg + WeightKg, MaxCarryWeightKg);
 }
 
-void AScavengerCharacter::ServerRemoveInventoryWeight_Implementation(float WeightKg)
+void AScavengerCharacter::ServerRemoveInventoryWeight(float WeightKg)
 {
-	if (WeightKg <= 0.0f)
+	if (!HasAuthority() || !FMath::IsFinite(WeightKg) || WeightKg <= 0.0f)
 	{
 		return;
 	}
@@ -1102,14 +1169,14 @@ void AScavengerCharacter::ServerRemoveInventoryWeight_Implementation(float Weigh
 	CurrentInventoryWeightKg = FMath::Max(CurrentInventoryWeightKg - WeightKg, 0.0f);
 }
 
-void AScavengerCharacter::ServerDrainSanity_Implementation(float Amount)
+void AScavengerCharacter::ServerDrainSanity(float Amount)
 {
 	AuthDrainSanity(Amount);
 }
 
 void AScavengerCharacter::AuthDrainSanity(float Amount)
 {
-	if (Amount <= 0.0f || !HasAuthority())
+	if (!FMath::IsFinite(Amount) || Amount <= 0.0f || !HasAuthority())
 	{
 		return;
 	}
@@ -1117,9 +1184,9 @@ void AScavengerCharacter::AuthDrainSanity(float Amount)
 	CurrentSanity = FMath::Max(CurrentSanity - Amount, 0.0f);
 }
 
-void AScavengerCharacter::ServerRestoreSanity_Implementation(float Amount)
+void AScavengerCharacter::ServerRestoreSanity(float Amount)
 {
-	if (Amount <= 0.0f)
+	if (!HasAuthority() || !FMath::IsFinite(Amount) || Amount <= 0.0f)
 	{
 		return;
 	}
@@ -1211,9 +1278,59 @@ void AScavengerCharacter::OnRep_IsDowned()
 	}
 }
 
-void AScavengerCharacter::ServerRevivePlayer_Implementation(AScavengerCharacter* Reviver)
+void AScavengerCharacter::ServerRevivePlayer(AScavengerCharacter* Reviver)
 {
-	Revive(0.4f, 0.5f);
+	if (HasAuthority() && IsValid(Reviver))
+	{
+		Reviver->ServerRequestRevive(this);
+	}
+}
+
+bool AScavengerCharacter::CanReviveTarget(const AScavengerCharacter* Target) const
+{
+	if (!HasAuthority() || !GetWorld() || !IsValid(Target) || Target == this ||
+		bIsDead || bIsDowned || bIsHypnotized || bIsHiddenInSpot || bIsInVent ||
+		Target->IsDead() || !Target->IsDowned() ||
+		FVector::DistSquared(GetActorLocation(), Target->GetActorLocation()) > FMath::Square(250.0f))
+	{
+		return false;
+	}
+	FVector EyeLocation;
+	FRotator EyeRotation;
+	GetActorEyesViewPoint(EyeLocation, EyeRotation);
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(ReviveVisibility), false, this);
+	const bool bBlocked = GetWorld()->LineTraceSingleByChannel(
+		Hit, EyeLocation, Target->GetActorLocation(), ECC_Visibility, Params);
+	return !bBlocked || Hit.GetActor() == Target;
+}
+
+void AScavengerCharacter::ServerRequestRevive_Implementation(AScavengerCharacter* Target)
+{
+	if (!CanReviveTarget(Target)) return;
+	if (PendingReviveTarget.Get() != Target)
+	{
+		PendingReviveTarget = Target;
+		ReviveElapsedSeconds = 0.0f;
+	}
+}
+
+void AScavengerCharacter::UpdateRevive(float DeltaSeconds)
+{
+	AScavengerCharacter* Target = PendingReviveTarget.Get();
+	if (!CanReviveTarget(Target))
+	{
+		PendingReviveTarget.Reset();
+		ReviveElapsedSeconds = 0.0f;
+		return;
+	}
+	ReviveElapsedSeconds += DeltaSeconds;
+	if (ReviveElapsedSeconds >= 3.0f)
+	{
+		Target->Revive(0.4f, 0.5f);
+		PendingReviveTarget.Reset();
+		ReviveElapsedSeconds = 0.0f;
+	}
 }
 
 void AScavengerCharacter::DropCarriedLootOnGround()
@@ -1330,6 +1447,11 @@ int32 AScavengerCharacter::GetCarriedCredits() const
 void AScavengerCharacter::AddCarriedCredits(int32 Amount)
 {
 	CarriedCredits = FMath::Max(0, CarriedCredits + Amount);
+}
+
+void AScavengerCharacter::SetCarriedCredits(int32 Amount)
+{
+	CarriedCredits = FMath::Max(0, Amount);
 }
 
 void AScavengerCharacter::OnRep_CarriedCredits()
@@ -1553,6 +1675,7 @@ void AScavengerCharacter::TriggerAdrenalineRush(float DurationSeconds)
 
 void AScavengerCharacter::Revive(float HealthPercent, float SanityPercent)
 {
+	if (!HasAuthority() || !FMath::IsFinite(HealthPercent) || !FMath::IsFinite(SanityPercent)) return;
 	if (!bIsDead && !bIsDowned)
 	{
 		return;
@@ -1823,8 +1946,9 @@ void AScavengerCharacter::UpdateLootGaze()
 	}
 }
 
-void AScavengerCharacter::ServerSetInfected_Implementation(bool bInfected)
+void AScavengerCharacter::ServerSetInfected(bool bInfected)
 {
+	if (!HasAuthority()) return;
 	bIsInfectedPartygoer = bInfected;
 	OnRep_IsInfectedPartygoer();
 }
@@ -1907,25 +2031,9 @@ void AScavengerCharacter::StopLean()
 
 void AScavengerCharacter::Interact()
 {
-	if (bIsHiddenInSpot)
+	if (bIsHiddenInSpot || bIsInVent)
 	{
-		if (CurrentHidingSpot.IsValid())
-		{
-			CurrentHidingSpot->ForceExit();
-		}
-		bIsHiddenInSpot = false;
-		CurrentHidingSpot = nullptr;
-		return;
-	}
-
-	if (bIsInVent)
-	{
-		if (CurrentVent.IsValid())
-		{
-			CurrentVent->ExitVent();
-		}
-		bIsInVent = false;
-		CurrentVent = nullptr;
+		ServerInteract();
 		return;
 	}
 
@@ -1937,8 +2045,7 @@ void AScavengerCharacter::Interact()
 	const FVector TraceStart = FirstPersonCamera->GetComponentLocation();
 	const FVector TraceEnd = TraceStart + (FirstPersonCamera->GetForwardVector() * 320.0f);
 
-	FCollisionQueryParams Params;
-	Params.AddIgnoredActor(this);
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(InteractionClient), false, this);
 
 	TArray<FHitResult> HitResults;
 	GetWorld()->SweepMultiByChannel(HitResults, TraceStart, TraceEnd, FQuat::Identity, ECC_Visibility, FCollisionShape::MakeSphere(30.0f), Params);
@@ -1954,7 +2061,54 @@ void AScavengerCharacter::Interact()
 		if (ALiminalTerminalActor* Terminal = Cast<ALiminalTerminalActor>(HitActor))
 		{
 			Terminal->Interact(this);
-			return;
+			return; // Terminal UI is local
+		}
+	}
+
+	ServerInteract();
+}
+
+bool AScavengerCharacter::ServerInteract_Validate()
+{
+	return true;
+}
+
+void AScavengerCharacter::ServerInteract_Implementation()
+{
+	UWorld* World = GetWorld();
+	if (!HasAuthority() || !World || bIsDead || bIsDowned || bIsHypnotized) return;
+
+	const double Now = World->GetTimeSeconds();
+	if (LastDoorInteractionTime >= 0.0 && Now - LastDoorInteractionTime < 0.2) return;
+	LastDoorInteractionTime = Now;
+
+	if (CurrentHidingSpot.IsValid() && CurrentHidingSpot->GetOccupant() == this)
+	{
+		// ForceExit starts a transition. Tick clears the flag once it finishes.
+		CurrentHidingSpot->ForceExit();
+		return;
+	}
+	if (CurrentVent.IsValid() && CurrentVent->GetOccupant() == this)
+	{
+		CurrentVent->ExitVent();
+		return;
+	}
+
+	FVector EyeLocation;
+	FRotator EyeRotation;
+	GetActorEyesViewPoint(EyeLocation, EyeRotation);
+	const FVector TraceEnd = EyeLocation + EyeRotation.Vector() * 320.0f;
+
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(InteractionServer), false, this);
+	TArray<FHitResult> HitResults;
+	World->SweepMultiByChannel(HitResults, EyeLocation, TraceEnd, FQuat::Identity, ECC_Visibility, FCollisionShape::MakeSphere(30.0f), Params);
+
+	for (const FHitResult& Hit : HitResults)
+	{
+		AActor* HitActor = Hit.GetActor();
+		if (!HitActor)
+		{
+			continue;
 		}
 
 		if (ALiminalAirlockActor* Airlock = Cast<ALiminalAirlockActor>(HitActor))
@@ -1966,6 +2120,12 @@ void AScavengerCharacter::Interact()
 		if (ALiminalDoorActor* Door = Cast<ALiminalDoorActor>(HitActor))
 		{
 			Door->Interact(this);
+			return;
+		}
+
+		if (AScavengerCharacter* Teammate = Cast<AScavengerCharacter>(HitActor))
+		{
+			ServerRequestRevive(Teammate);
 			return;
 		}
 
@@ -1989,7 +2149,7 @@ void AScavengerCharacter::Interact()
 		if (ALiminalVentActor* Vent = Cast<ALiminalVentActor>(HitActor))
 		{
 			Vent->TryEnter(this);
-			if (Vent->IsOccupied())
+			if (Vent->GetOccupant() == this)
 			{
 				bIsInVent = true;
 				CurrentVent = Vent;
@@ -2023,7 +2183,7 @@ void AScavengerCharacter::Interact()
 
 		if (ALootActor* Loot = Cast<ALootActor>(HitActor))
 		{
-			InputGrab();
+			ServerTryGrab();
 			return;
 		}
 	}

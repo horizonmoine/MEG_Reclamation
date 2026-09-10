@@ -2,6 +2,7 @@
 
 #include "Engine/Canvas.h"
 #include "GameFramework/PlayerController.h"
+#include "HAL/PlatformTime.h"
 #include "Kismet/GameplayStatics.h"
 #include "Data/LiminalGameInstance.h"
 
@@ -21,18 +22,27 @@ void ULiminalPauseMenuComponent::TogglePause()
 	bIsPaused = !bIsPaused;
 	SelectedButton = 0;
 	bShowInlineSettings = false;
+	LastDrawTime = FPlatformTime::Seconds();
 
 	if (APlayerController* PC = Cast<APlayerController>(GetOwner()))
 	{
+		PC->SetIgnoreMoveInput(bIsPaused);
+		PC->SetIgnoreLookInput(bIsPaused);
 		if (bIsPaused)
 		{
 			PC->bShowMouseCursor = true;
-			PC->SetPause(true);
+			if (GetWorld() && GetWorld()->GetNetMode() == NM_Standalone)
+			{
+				PC->SetPause(true);
+			}
 		}
 		else
 		{
 			PC->bShowMouseCursor = false;
-			PC->SetPause(false);
+			if (GetWorld() && GetWorld()->GetNetMode() == NM_Standalone)
+			{
+				PC->SetPause(false);
+			}
 		}
 	}
 }
@@ -44,10 +54,14 @@ void ULiminalPauseMenuComponent::DrawPauseMenu(UCanvas* InCanvas, float ScreenWi
 		return;
 	}
 
-	PulseTimer += DeltaTime;
+	// World delta is zero during a real solo pause. Menu navigation still needs a clock.
+	const double Now = FPlatformTime::Seconds();
+	const float MenuDelta = LastDrawTime > 0.0 ? FMath::Clamp(static_cast<float>(Now - LastDrawTime), 0.0f, 0.1f) : 0.0f;
+	LastDrawTime = Now;
+	PulseTimer += MenuDelta;
 	if (InputCooldown > 0.0f)
 	{
-		InputCooldown -= DeltaTime;
+		InputCooldown -= MenuDelta;
 	}
 
 	// Fond semi-transparent plein ecran
@@ -71,7 +85,8 @@ void ULiminalPauseMenuComponent::DrawPauseMenu(UCanvas* InCanvas, float ScreenWi
 	InCanvas->K2_DrawBox(FVector2D(FrameX, FrameY), FVector2D(FrameW, FrameH), 2.0f, Pause_AmberDim);
 
 	// Titre
-	const FString Title = TEXT("═══ PAUSE ═══");
+	const bool bNetworkGame = GetWorld() && GetWorld()->GetNetMode() != NM_Standalone;
+	const FString Title = bNetworkGame ? TEXT("MENU - LA PARTIE CONTINUE") : TEXT("═══ PAUSE ═══");
 	FCanvasTextItem TitleItem(FVector2D(FrameX + 20.0f, FrameY + 15.0f * Scale), FText::FromString(Title), nullptr, Pause_AmberBright);
 	TitleItem.Scale = FVector2D(Scale, Scale);
 	InCanvas->DrawItem(TitleItem);
@@ -163,7 +178,10 @@ void ULiminalPauseMenuComponent::OnQuitToMenu()
 	// Unpause avant de quitter
 	if (APlayerController* PC = Cast<APlayerController>(GetOwner()))
 	{
-		PC->SetPause(false);
+		if (GetWorld() && GetWorld()->GetNetMode() == NM_Standalone)
+		{
+			PC->SetPause(false);
+		}
 		PC->bShowMouseCursor = true;
 	}
 

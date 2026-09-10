@@ -163,7 +163,9 @@ void ALiminalMainMenuHUD::DrawMainMenu(float W, float H)
 	DrawRect(CRT_Background, FrameX, FrameY, FrameW, FrameH);
 
 	// En-tete
-	const FString Header = TEXT("═══ TERMINAL M.E.G. — MENU PRINCIPAL ═══");
+	const FString Header = bConfirmNewCampaign
+		? TEXT("EFFACER LA CAMPAGNE ? ECHAP POUR ANNULER")
+		: TEXT("═══ TERMINAL M.E.G. — MENU PRINCIPAL ═══");
 	const float Scale = FMath::Clamp(W / 1920.0f, 0.5f, 1.5f);
 	DrawText(Header, CRT_AmberBright, FrameX + 20.0f * Scale, FrameY + 15.0f * Scale, nullptr, Scale);
 
@@ -179,7 +181,7 @@ void ALiminalMainMenuHUD::DrawMainMenu(float W, float H)
 
 	MaxButtonCount = 6;
 
-	DrawMenuButton(BtnX, BtnY, BtnW, BtnH, TEXT("> NOUVELLE EXPEDITION"), 0, SelectedButtonIndex == 0);
+	DrawMenuButton(BtnX, BtnY, BtnW, BtnH, bConfirmNewCampaign ? TEXT("> CONFIRMER L'EFFACEMENT") : TEXT("> NOUVELLE EXPEDITION"), 0, SelectedButtonIndex == 0);
 	BtnY += BtnSpacing;
 	DrawMenuButton(BtnX, BtnY, BtnW, BtnH, TEXT("> CONTINUER"), 1, SelectedButtonIndex == 1);
 	BtnY += BtnSpacing;
@@ -644,6 +646,7 @@ void ALiminalMainMenuHUD::HandleMenuInput()
 
 void ALiminalMainMenuHUD::NavigateUp()
 {
+	bConfirmNewCampaign = false;
 	if (MaxButtonCount > 0)
 	{
 		SelectedButtonIndex = (SelectedButtonIndex - 1 + MaxButtonCount) % MaxButtonCount;
@@ -652,6 +655,7 @@ void ALiminalMainMenuHUD::NavigateUp()
 
 void ALiminalMainMenuHUD::NavigateDown()
 {
+	bConfirmNewCampaign = false;
 	if (MaxButtonCount > 0)
 	{
 		SelectedButtonIndex = (SelectedButtonIndex + 1) % MaxButtonCount;
@@ -660,6 +664,7 @@ void ALiminalMainMenuHUD::NavigateDown()
 
 void ALiminalMainMenuHUD::NavigateLeft()
 {
+	bConfirmNewCampaign = false;
 	if (CurrentScreen == EMenuScreen::Settings)
 	{
 		if (MaxButtonCount == 0 || SelectedButtonIndex < 0)
@@ -705,6 +710,7 @@ void ALiminalMainMenuHUD::NavigateLeft()
 
 void ALiminalMainMenuHUD::NavigateRight()
 {
+	bConfirmNewCampaign = false;
 	if (CurrentScreen == EMenuScreen::Settings)
 	{
 		if (MaxButtonCount == 0 || SelectedButtonIndex < 0)
@@ -748,6 +754,10 @@ void ALiminalMainMenuHUD::NavigateRight()
 
 void ALiminalMainMenuHUD::ConfirmSelection()
 {
+	if (CurrentScreen != EMenuScreen::MainMenu || SelectedButtonIndex != 0)
+	{
+		bConfirmNewCampaign = false;
+	}
 	switch (CurrentScreen)
 	{
 	case EMenuScreen::MainMenu:
@@ -788,6 +798,11 @@ void ALiminalMainMenuHUD::ConfirmSelection()
 
 void ALiminalMainMenuHUD::GoBack()
 {
+	if (bConfirmNewCampaign)
+	{
+		bConfirmNewCampaign = false;
+		return;
+	}
 	switch (CurrentScreen)
 	{
 	case EMenuScreen::Settings:
@@ -807,9 +822,15 @@ void ALiminalMainMenuHUD::GoBack()
 
 void ALiminalMainMenuHUD::OnNewExpedition()
 {
+	if (!bConfirmNewCampaign)
+	{
+		bConfirmNewCampaign = true;
+		return;
+	}
+	bConfirmNewCampaign = false;
 	if (ULiminalGameInstance* GI = Cast<ULiminalGameInstance>(UGameplayStatics::GetGameInstance(this)))
 	{
-		GI->LoadGameFromDisk();
+		GI->ResetCampaign();
 		if (APlayerController* PC = GetOwningPlayerController())
 		{
 			PC->bShowMouseCursor = false;

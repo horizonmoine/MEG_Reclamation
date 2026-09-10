@@ -25,13 +25,16 @@ FString ULiminalSessionManager::GetUniquePlayerIdFromController(AController* Con
 
 	if (APlayerState* PS = Controller->PlayerState)
 	{
+		if (PS->GetPlayerId() > 0)
+		{
+			return FString::Printf(TEXT("PlayerStateId_%d"), PS->GetPlayerId());
+		}
+
 		const FString PlayerName = PS->GetPlayerName();
 		if (!PlayerName.IsEmpty())
 		{
 			return PlayerName;
 		}
-
-		return FString::Printf(TEXT("PlayerState_%d"), PS->GetPlayerId());
 	}
 
 	return Controller->GetName();
@@ -103,9 +106,9 @@ bool ULiminalSessionManager::TryRestorePlayer(AController* JoiningController)
 	// Restaurer la position de jeu
 	Scavenger->SetActorLocationAndRotation(Record.SavedLocation, Record.SavedRotation, false, nullptr, ETeleportType::TeleportPhysics);
 
-	// Restaurer les credits et la sante
-	Scavenger->AddCarriedCredits(Record.CarriedCredits);
-	Scavenger->HealAndRestoreSanity(Record.Health, Record.Sanity);
+	// Restaurer les credits et la sante en valeur absolue
+	Scavenger->SetCarriedCredits(Record.CarriedCredits);
+	Scavenger->AuthSetHealthAndSanity(Record.Health, Record.Sanity);
 
 	for (const FName& Tag : Record.CarriedTags)
 	{

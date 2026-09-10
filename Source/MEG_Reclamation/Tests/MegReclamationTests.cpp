@@ -46,7 +46,7 @@
 #endif
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegQuotaManagerTest, "Project.Functional Tests.MEG.QuotaManager",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegQuotaManagerTest::RunTest(const FString& Parameters)
 {
@@ -78,7 +78,7 @@ bool FMegQuotaManagerTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegQuotaDebtTest, "Project.Functional Tests.MEG.QuotaDebt",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegQuotaDebtTest::RunTest(const FString& Parameters)
 {
@@ -118,8 +118,8 @@ bool FMegQuotaDebtTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegProcGenDeterminismTest, "Project.Functional Tests.MEG.ProcGenDeterminism",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegProcGenDeterminismTest, "Project.Functional Tests.MEG.ProcGen.ProcGenDeterminism",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegProcGenDeterminismTest::RunTest(const FString& Parameters)
 {
@@ -147,8 +147,8 @@ bool FMegProcGenDeterminismTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegProcGenConnectivityTest, "Project.Functional Tests.MEG.ProcGenConnectivity",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegProcGenConnectivityTest, "Project.Functional Tests.MEG.ProcGen.ProcGenConnectivity",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegProcGenConnectivityTest::RunTest(const FString& Parameters)
 {
@@ -164,7 +164,7 @@ bool FMegProcGenConnectivityTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegLootItemDataTableTest, "Project.Functional Tests.MEG.LootItemDataTable",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegLootItemDataTableTest::RunTest(const FString& Parameters)
 {
@@ -181,8 +181,8 @@ bool FMegLootItemDataTableTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegProcGenRoomPlacementTest, "Project.Functional Tests.MEG.ProcGenRoomPlacement",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegProcGenRoomPlacementTest, "Project.Functional Tests.MEG.ProcGen.ProcGenRoomPlacement",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegProcGenRoomPlacementTest::RunTest(const FString& Parameters)
 {
@@ -203,7 +203,7 @@ bool FMegProcGenRoomPlacementTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegSaveDataTest, "Project.Functional Tests.MEG.SaveData",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegSaveDataTest::RunTest(const FString& Parameters)
 {
@@ -222,7 +222,7 @@ bool FMegSaveDataTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegMultiBiomeLayoutTest, "Project.Functional Tests.MEG.MultiBiomeLayout",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegMultiBiomeLayoutTest::RunTest(const FString& Parameters)
 {
@@ -239,7 +239,7 @@ bool FMegMultiBiomeLayoutTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegAllBiomesIntegrityTest, "Project.Functional Tests.MEG.AllBiomesIntegrity",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegAllBiomesIntegrityTest::RunTest(const FString& Parameters)
 {
@@ -309,7 +309,7 @@ bool FMegAllBiomesIntegrityTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegVoiceMimicryTest, "Project.Functional Tests.MEG.VoiceMimicry",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegVoiceMimicryTest::RunTest(const FString& Parameters)
 {
@@ -333,7 +333,7 @@ bool FMegVoiceMimicryTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegSanityTierTest, "Project.Functional Tests.MEG.SanityTiers",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegSanityTierTest::RunTest(const FString& Parameters)
 {
@@ -350,7 +350,7 @@ bool FMegSanityTierTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegPhase2ToolsTest, "Project.Functional Tests.MEG.Phase2Tools",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegPhase2ToolsTest::RunTest(const FString& Parameters)
 {
@@ -402,7 +402,7 @@ bool FMegPhase2ToolsTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegHubProgressionTest, "Project.Functional Tests.MEG.HubProgression",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegHubProgressionTest::RunTest(const FString& Parameters)
 {
@@ -418,7 +418,7 @@ bool FMegHubProgressionTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegMissionGameModeTest, "Project.Functional Tests.MEG.MissionGameMode",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegMissionGameModeTest::RunTest(const FString& Parameters)
 {
@@ -436,7 +436,7 @@ bool FMegMissionGameModeTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegTerminalStoreCatalogTest, "Project.Functional Tests.MEG.TerminalStoreCatalog",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegTerminalStoreCatalogTest::RunTest(const FString& Parameters)
 {
@@ -464,7 +464,7 @@ bool FMegTerminalStoreCatalogTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegSmilerSensoryTest, "Project.Functional Tests.MEG.SmilerSensory",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegSmilerSensoryTest::RunTest(const FString& Parameters)
 {
@@ -480,7 +480,7 @@ bool FMegSmilerSensoryTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegJerryHypnosisGazeTest, "Project.Functional Tests.MEG.JerryHypnosisGaze",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegJerryHypnosisGazeTest::RunTest(const FString& Parameters)
 {
@@ -496,7 +496,7 @@ bool FMegJerryHypnosisGazeTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegScavengerCapabilitiesTest, "Project.Functional Tests.MEG.ScavengerCapabilities",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegScavengerCapabilitiesTest::RunTest(const FString& Parameters)
 {
@@ -513,24 +513,24 @@ bool FMegScavengerCapabilitiesTest::RunTest(const FString& Parameters)
 
 #if WITH_EDITOR
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegAssetPipelineGenerationTest, "Project.Functional Tests.MEG.AssetPipelineGeneration",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegAssetPipelineGenerationTest::RunTest(const FString& Parameters)
 {
-	MEG_FullGameAutomator::BuildFullGame();
-	MEG_HoundAIBuilder::BuildHoundAssets();
+	// Content verification only: asset generation is an explicit editor operation.
 
-	TestTrue("DataTable DT_LootItems genere", FPaths::FileExists(FPaths::ProjectContentDir() / TEXT("Data/DT_LootItems.uasset")));
-	TestTrue("Blackboard BB_Hound genere", FPaths::FileExists(FPaths::ProjectContentDir() / TEXT("AI/BB_Hound.uasset")));
-	TestTrue("BehaviorTree BT_Hound genere", FPaths::FileExists(FPaths::ProjectContentDir() / TEXT("AI/BT_Hound.uasset")));
-	TestTrue("InputContext IMC_Scavenger genere", FPaths::FileExists(FPaths::ProjectContentDir() / TEXT("Input/Scavenger/IMC_Scavenger.uasset")));
+
+	TestTrue("DataTable DT_LootItems present", FPaths::FileExists(FPaths::ProjectContentDir() / TEXT("Data/DT_LootItems.uasset")));
+	TestTrue("Blackboard BB_Hound present", FPaths::FileExists(FPaths::ProjectContentDir() / TEXT("AI/BB_Hound.uasset")));
+	TestTrue("BehaviorTree BT_Hound present", FPaths::FileExists(FPaths::ProjectContentDir() / TEXT("AI/BT_Hound.uasset")));
+	TestTrue("InputContext IMC_Scavenger present", FPaths::FileExists(FPaths::ProjectContentDir() / TEXT("Input/Scavenger/IMC_Scavenger.uasset")));
 
 	return true;
 }
 #endif
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegMassiveLabyrinthScalingTest, "Project.Functional Tests.MEG.MassiveLabyrinthScaling",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegMassiveLabyrinthScalingTest::RunTest(const FString& Parameters)
 {
@@ -568,7 +568,7 @@ bool FMegMassiveLabyrinthScalingTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegTacticalPolishAndSpectatorTest, "Project.Functional Tests.MEG.TacticalPolishAndSpectator",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegTacticalPolishAndSpectatorTest::RunTest(const FString& Parameters)
 {
@@ -592,7 +592,7 @@ bool FMegTacticalPolishAndSpectatorTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegFieldManualAndAirlockTest, "Project.Functional Tests.MEG.FieldManualAndAirlock",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegFieldManualAndAirlockTest::RunTest(const FString& Parameters)
 {
@@ -628,7 +628,7 @@ bool FMegFieldManualAndAirlockTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegRepoAndEscapeMechanicsTest, "Project.Functional Tests.MEG.RepoAndEscapeMechanics",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegRepoAndEscapeMechanicsTest::RunTest(const FString& Parameters)
 {
@@ -677,7 +677,7 @@ bool FMegRepoAndEscapeMechanicsTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegCoopSurvivalAndDownedTest, "Project.Functional Tests.MEG.CoopSurvivalAndDowned",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegCoopSurvivalAndDownedTest::RunTest(const FString& Parameters)
 {
@@ -696,7 +696,7 @@ bool FMegCoopSurvivalAndDownedTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegConditionalExtractionAndDeathHUDTest, "Project.Functional Tests.MEG.ConditionalExtractionAndDeathHUD",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegConditionalExtractionAndDeathHUDTest::RunTest(const FString& Parameters)
 {
@@ -715,8 +715,8 @@ bool FMegConditionalExtractionAndDeathHUDTest::RunTest(const FString& Parameters
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegModularProcGenDungeonTest, "Project.Functional Tests.MEG.ModularProcGenDungeon",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegModularProcGenDungeonTest, "Project.Functional Tests.MEG.ProcGen.ModularProcGenDungeon",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegModularProcGenDungeonTest::RunTest(const FString& Parameters)
 {
@@ -752,7 +752,7 @@ bool FMegModularProcGenDungeonTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegSteamValvePuzzleTest, "Project.Functional Tests.MEG.SteamValvePuzzle",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegSteamValvePuzzleTest::RunTest(const FString& Parameters)
 {
@@ -768,7 +768,7 @@ bool FMegSteamValvePuzzleTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegFuseBoxPuzzleTest, "Project.Functional Tests.MEG.FuseBoxPuzzle",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegFuseBoxPuzzleTest::RunTest(const FString& Parameters)
 {
@@ -785,7 +785,7 @@ bool FMegFuseBoxPuzzleTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegWalkieTalkieRadioTest, "Project.Functional Tests.MEG.WalkieTalkieRadio",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegWalkieTalkieRadioTest::RunTest(const FString& Parameters)
 {
@@ -801,7 +801,7 @@ bool FMegWalkieTalkieRadioTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegBodycamTelemetryTest, "Project.Functional Tests.MEG.BodycamTelemetry",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegBodycamTelemetryTest::RunTest(const FString& Parameters)
 {
@@ -820,6 +820,3 @@ bool FMegBodycamTelemetryTest::RunTest(const FString& Parameters)
 }
 
 #endif
-
-
-

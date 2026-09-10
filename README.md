@@ -4,7 +4,9 @@
 [![Language](https://img.shields.io/badge/Language-C%2B%2B%20%2F%20Blueprint-orange.svg)]()
 [![Genre](https://img.shields.io/badge/Genre-Coop%20Extraction%20Horror-red.svg)]()
 [![Platform](https://img.shields.io/badge/Platform-PC%20Windows-lightgrey.svg)]()
-[![Tests](https://img.shields.io/badge/Automation%20Tests-23%2F23%20Passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/QA-voir%20rapport%20de%20session-yellow.svg)](docs/ETAT_REPRISE.md)
+
+> **État de production : prototype en consolidation.** Consulter le [périmètre actif](docs/SCOPE_ACTUEL.md), les [résultats et travaux restant à faire](docs/ETAT_REPRISE.md) et l'[audit détaillé](docs/audit-2026-09-10/README.md). Les descriptions de fonctionnalités ci-dessous ne remplacent pas une validation en jeu ou une certification de release.
 
 > **Horreur d'extraction coopérative scientifique (1-4 joueurs) dans les espaces liminaux des Backrooms.**
 > *Module C++ officiel : `MEG_Reclamation`*

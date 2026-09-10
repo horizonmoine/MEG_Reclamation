@@ -8,6 +8,9 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Objects/LiminalAirlockActor.h"
 #include "Objects/LiminalTerminalActor.h"
+#include "Objects/ExtractionZone.h"
+#include "AI/LiminalEntity.h"
+#include "ProcGen/LiminalLevelGenerator.h"
 #include "Player/ScavengerCharacter.h"
 #include "Hub/LiminalHubProgressionComponent.h"
 #include "UI/LiminalScavengerHUD.h"
@@ -37,25 +40,47 @@ void ALiminalLobbyGameMode::BeginPlay()
 	UWorld* World = GetWorld();
 	if (World && HasAuthority())
 	{
-		// Zone de securite absolue du M.E.G. : elimination stricte de toute entite hostile
-		for (TActorIterator<ACharacter> CharIt(World); CharIt; ++CharIt)
+		// 1. Zone de securite absolue du M.E.G. : elimination stricte de toute entite hostile, monstre ou generateur
+		for (TActorIterator<AActor> ActIt(World); ActIt; ++ActIt)
 		{
-			ACharacter* Char = *CharIt;
-			if (Char && !Char->IsA(AScavengerCharacter::StaticClass()))
+			AActor* Actor = *ActIt;
+			if (!Actor || Actor == this)
 			{
-				Char->Destroy();
+				continue;
+			}
+
+			// Purger tout LiminalLevelGenerator present accidentellement dans le hub
+			if (Actor->IsA<ALiminalLevelGenerator>())
+			{
+				Actor->Destroy();
+				continue;
+			}
+
+			// Remove known hostiles, preserving spectators and friendly pawns.
+			if (ALiminalEntity* Entity = Cast<ALiminalEntity>(Actor))
+			{
+				Entity->Destroy();
 			}
 		}
 
-		// S'assurer de la presence du decor de la Base Alpha
-		bool bHasGeometry = false;
+		// 2. S'assurer de la presence du decor modulaire de la Base Alpha
+		bool bHasModularFloor = false;
 		for (TActorIterator<AStaticMeshActor> It(World); It; ++It)
 		{
-			bHasGeometry = true;
-			break;
+			if (UStaticMeshComponent* SMC = It->GetStaticMeshComponent())
+			{
+				if (UStaticMesh* Mesh = SMC->GetStaticMesh())
+				{
+					if (Mesh->GetName().Contains(TEXT("SM_Floor_Tile_400x400")))
+					{
+						bHasModularFloor = true;
+						break;
+					}
+				}
+			}
 		}
 
-		if (!bHasGeometry)
+		if (!bHasModularFloor)
 		{
 			FActorSpawnParameters SpawnParams;
 			SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -373,7 +398,7 @@ void ALiminalLobbyGameMode::BeginPlay()
 				UGameplayStatics::PlaySoundAtLocation(World, HumSound, FVector(500.0f, 0.0f, 200.0f), 0.40f, 1.0f);
 			}
 		}
-		// S'assurer de la presence du Terminal de mission M.E.G.
+		// 3. S'assurer de la presence du Terminal de mission M.E.G.
 		bool bHasTerminal = false;
 		for (TActorIterator<ALiminalTerminalActor> It(World); It; ++It)
 		{
@@ -384,11 +409,15 @@ void ALiminalLobbyGameMode::BeginPlay()
 		{
 			FActorSpawnParameters Params;
 			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-			World->SpawnActor<ALiminalTerminalActor>(ALiminalTerminalActor::StaticClass(),
-				FVector(450.0f, 0.0f, 80.0f), FRotator(0.0f, 180.0f, 0.0f), Params);
+			ALiminalTerminalActor* SpawnedTerm = World->SpawnActor<ALiminalTerminalActor>(ALiminalTerminalActor::StaticClass(),
+				FVector(130.0f, 0.0f, 75.0f), FRotator(0.0f, 180.0f, 0.0f), Params);
+			if (SpawnedTerm)
+			{
+				SpawnedTerm->SetActorScale3D(FVector(0.55f, 0.55f, 0.55f));
+			}
 		}
 
-		// S'assurer de la presence du Sas d'incursion
+		// 4. S'assurer de la presence du Sas d'incursion
 		bool bHasAirlock = false;
 		for (TActorIterator<ALiminalAirlockActor> It(World); It; ++It)
 		{
@@ -400,7 +429,22 @@ void ALiminalLobbyGameMode::BeginPlay()
 			FActorSpawnParameters Params;
 			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 			World->SpawnActor<ALiminalAirlockActor>(ALiminalAirlockActor::StaticClass(),
-				FVector(1000.0f, 0.0f, 80.0f), FRotator(0.0f, 180.0f, 0.0f), Params);
+				FVector(1150.0f, 0.0f, 0.0f), FRotator(0.0f, 180.0f, 0.0f), Params);
+		}
+
+		// 5. S'assurer de la presence de la zone de depot de butin
+		bool bHasExtractionZone = false;
+		for (TActorIterator<AExtractionZone> It(World); It; ++It)
+		{
+			bHasExtractionZone = true;
+			break;
+		}
+		if (!bHasExtractionZone)
+		{
+			FActorSpawnParameters Params;
+			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+			World->SpawnActor<AExtractionZone>(AExtractionZone::StaticClass(),
+				FVector(200.0f, -450.0f, 20.0f), FRotator::ZeroRotator, Params);
 		}
 	}
 

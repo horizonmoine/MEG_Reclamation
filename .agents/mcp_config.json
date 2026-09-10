@@ -2,6 +2,18 @@
   "mcpServers": {
     "unreal-engine": {
       "serverUrl": "http://127.0.0.1:8000/mcp"
+    },
+    "unreal-engine-cli": {
+      "command": "F:\\UE_5.8\\Engine\\Binaries\\ThirdParty\\Python3\\Win64\\python.exe",
+      "args": [
+        "F:\\MEG_Reclamation\\scripts\\unreal_mcp_bridge.py"
+      ]
+    },
+    "blender": {
+      "command": "F:\\UE_5.8\\Engine\\Binaries\\ThirdParty\\Python3\\Win64\\python.exe",
+      "args": [
+        "F:\\MEG_Reclamation\\scripts\\blender_mcp_server.py"
+      ]
     }
   }
 }

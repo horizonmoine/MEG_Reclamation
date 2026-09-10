@@ -186,6 +186,10 @@ void ALiminalEntity::Tick(float DeltaSeconds)
 	if (AttackCooldownTimer > 0.0f)
 	{
 		AttackCooldownTimer = FMath::Max(AttackCooldownTimer - DeltaSeconds, 0.0f);
+		if (AttackCooldownTimer <= 0.0f)
+		{
+			bAttackImpactPending = false;
+		}
 	}
 }
 
@@ -207,6 +211,7 @@ void ALiminalEntity::ApplyStun(float DurationSeconds)
 	}
 
 	StunTimer = FMath::Max(StunTimer, DurationSeconds);
+	bAttackImpactPending = false;
 }
 
 void ALiminalEntity::ApplyCalm(float DurationSeconds)
@@ -217,6 +222,7 @@ void ALiminalEntity::ApplyCalm(float DurationSeconds)
 	}
 
 	CalmTimer = FMath::Max(CalmTimer, DurationSeconds);
+	bAttackImpactPending = false;
 }
 
 bool ALiminalEntity::IsStunned() const
@@ -231,12 +237,15 @@ bool ALiminalEntity::IsCalmed() const
 
 bool ALiminalEntity::CanAttack() const
 {
-	return StunTimer <= 0.0f && AttackCooldownTimer <= 0.0f && CurrentHealth > 0.0f;
+	return !IsStunned() && !IsCalmed() && AttackCooldownTimer <= 0.0f && CurrentHealth > 0.0f;
 }
 
 bool ALiminalEntity::PerformMeleeAttack(AActor* Target)
 {
-	if (!CanAttack() || !Target || !HasAuthority())
+	const AScavengerCharacter* Scavenger = Cast<AScavengerCharacter>(Target);
+	UWorld* World = GetWorld();
+	if (!CanAttack() || !IsValid(Scavenger) || !HasAuthority() || !World ||
+		Scavenger->IsDead() || Scavenger->IsDowned() || Scavenger->IsHiddenInSpot())
 	{
 		return false;
 	}
@@ -247,7 +256,16 @@ bool ALiminalEntity::PerformMeleeAttack(AActor* Target)
 		return false;
 	}
 
+	FCollisionQueryParams VisibilityParams(SCENE_QUERY_STAT(LiminalMeleeVisibility), false, this);
+	FHitResult VisibilityHit;
+	if (World->LineTraceSingleByChannel(VisibilityHit, GetActorLocation(), Target->GetActorLocation(),
+		ECC_Visibility, VisibilityParams) && VisibilityHit.GetActor() != Target)
+	{
+		return false;
+	}
+
 	AttackCooldownTimer = AttackCooldownSeconds;
+	bAttackImpactPending = true;
 
 	bool bMontagePlayed = false;
 	if (AttackMontage)
@@ -256,6 +274,8 @@ bool ALiminalEntity::PerformMeleeAttack(AActor* Target)
 		if (MontageDuration > 0.0f)
 		{
 			bMontagePlayed = true;
+			// A late notify from this montage must not consume a subsequent attack.
+			AttackCooldownTimer = FMath::Max(AttackCooldownTimer, MontageDuration);
 		}
 	}
 
@@ -264,8 +284,6 @@ bool ALiminalEntity::PerformMeleeAttack(AActor* Target)
 	{
 		OnAttackNotify(DefaultAttackSocket, DefaultAttackTraceRadius, AttackRange);
 
-		// Direct fallback damage for headless automated tests
-		UGameplayStatics::ApplyDamage(Target, AttackDamage, GetController(), this, UDamageType::StaticClass());
 		UAISense_Hearing::ReportNoiseEvent(GetWorld(), GetActorLocation(), 1.0f, this);
 
 		if (AttackSound)
@@ -286,7 +304,7 @@ int32 ALiminalEntity::OnAttackNotify(
 	TSubclassOf<UDamageType> DamageType,
 	bool bDrawDebug)
 {
-	if (!HasAuthority() || CurrentHealth <= 0.0f)
+	if (!HasAuthority() || CurrentHealth <= 0.0f || IsStunned() || IsCalmed() || !bAttackImpactPending)
 	{
 		return 0;
 	}
@@ -296,6 +314,8 @@ int32 ALiminalEntity::OnAttackNotify(
 	{
 		return 0;
 	}
+	// Consume even on a miss: repeated notifies cannot turn one swing into multiple hits.
+	bAttackImpactPending = false;
 
 	const FName TargetSocket = (SocketName != NAME_None) ? SocketName : DefaultAttackSocket;
 	const float ActualRadius = (Radius > 0.0f) ? Radius : DefaultAttackTraceRadius;
@@ -358,7 +378,18 @@ int32 ALiminalEntity::OnAttackNotify(
 
 		if (AScavengerCharacter* Scavenger = Cast<AScavengerCharacter>(HitActor))
 		{
-			if (Scavenger->IsDead())
+			if (Scavenger->IsDead() || Scavenger->IsDowned() || Scavenger->IsHiddenInSpot())
+			{
+				continue;
+			}
+
+			FHitResult OcclusionHit;
+			FCollisionQueryParams OcclusionParams = QueryParams;
+			TArray<AActor*> AttachedActors;
+			Scavenger->GetAttachedActors(AttachedActors);
+			OcclusionParams.AddIgnoredActors(AttachedActors);
+			if (World->LineTraceSingleByChannel(OcclusionHit, StartPoint, Scavenger->GetActorLocation(),
+				ECC_Visibility, OcclusionParams) && OcclusionHit.GetActor() != Scavenger)
 			{
 				continue;
 			}

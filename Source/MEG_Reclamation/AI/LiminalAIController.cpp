@@ -1,6 +1,7 @@
 #include "AI/LiminalAIController.h"
 
 #include "AI/LiminalEntity.h"
+#include "AI/LiminalEntity_Smiler.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -81,12 +82,25 @@ void ALiminalAIController::Tick(float DeltaSeconds)
 		{
 			CurrentNoiseLocation = FVector::ZeroVector;
 			LastNoiseHeardTime = -1.0;
+			StopMovement();
+			return;
 		}
 
-		if (Entity->CanAttack())
+		// Specialised creatures own their attack decisions. The generic controller
+		// must not add an unrelated proximity bite to a grab, gaze or hypnosis.
+		const EMonsterType Type = Entity->GetMonsterType();
+		const ALiminalEntity_Smiler* Smiler = Cast<ALiminalEntity_Smiler>(Entity);
+		const bool bGenericMelee = Type == EMonsterType::Standard || Type == EMonsterType::Wretch ||
+			Type == EMonsterType::Hound || Type == EMonsterType::Duller || (Smiler && Smiler->IsCharging());
+		if (bGenericMelee && Entity->CanAttack())
 		{
 			const float AttackRange = Entity->GetAttackRange();
 			const FVector EntityLoc = Entity->GetActorLocation();
+			TArray<AActor*> PerceivedActors;
+			if (UAIPerceptionComponent* Perception = Entity->GetPerceptionComponent())
+			{
+				Perception->GetCurrentlyPerceivedActors(nullptr, PerceivedActors);
+			}
 
 			for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 			{
@@ -94,10 +108,13 @@ void ALiminalAIController::Tick(float DeltaSeconds)
 				{
 					if (APawn* PlayerPawn = PC->GetPawn())
 					{
-						if (FVector::DistSquared(EntityLoc, PlayerPawn->GetActorLocation()) <= FMath::Square(AttackRange + 30.0f))
+						if ((PerceivedActors.Contains(PlayerPawn) || (Smiler && Smiler->IsCharging())) &&
+							FVector::DistSquared(EntityLoc, PlayerPawn->GetActorLocation()) <= FMath::Square(AttackRange + 30.0f))
 						{
-							Entity->PerformMeleeAttack(PlayerPawn);
-							break;
+							if (Entity->PerformMeleeAttack(PlayerPawn))
+							{
+								break;
+							}
 						}
 					}
 				}

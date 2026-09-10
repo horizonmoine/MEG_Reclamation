@@ -39,6 +39,7 @@ private:
 	int32 SelectedButton = 0;
 	float InputCooldown = 0.0f;
 	float PulseTimer = 0.0f;
+	double LastDrawTime = 0.0;
 
 	// Settings inline (reduit)
 	bool bShowInlineSettings = false;

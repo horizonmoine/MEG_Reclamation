@@ -41,6 +41,8 @@ struct FGeneratedLayout
 	TArray<EProcCellType> Cells;
 	TArray<FProcRoom> Rooms;
 	uint32 Hash = 0;
+	int32 ExtractionRoomIndex = INDEX_NONE;
+	float ExtractionPathLengthCm = 0.0f;
 
 	EProcCellType GetCell(int32 X, int32 Y) const;
 	bool IsFloor(int32 X, int32 Y) const;
@@ -52,6 +54,8 @@ struct FGeneratedLayout
 	void SetCell(int32 X, int32 Y, EProcCellType CellType);
 	uint32 ComputeHash() const;
 	bool IsEveryRoomConnected() const;
+	/** Cardinal grid distances; INDEX_NONE means unreachable. Does not validate runtime collision. */
+	TArray<int32> GetRoomPathLengths() const;
 };
 
 /**
@@ -61,6 +65,10 @@ struct FGeneratedLayout
 class FLiminalLayoutBuilder
 {
 public:
+	/** Transactional: OutLayout is unchanged if no valid expedition is found. */
+	static bool TryGenerateExpedition(int32 Seed, int32 Width, int32 Height,
+		int32 RoomCount, int32 MinRoomSize, int32 MaxRoomSize, float ExtraLoopChance,
+		float CellSize, FGeneratedLayout& OutLayout, float MinimumDistanceCm = 8000.0f);
 	static FGeneratedLayout Generate(int32 Seed, int32 Width, int32 Height,
 		int32 RoomCount, int32 MinRoomSize, int32 MaxRoomSize, float ExtraLoopChance);
 

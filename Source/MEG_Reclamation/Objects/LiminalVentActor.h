@@ -51,6 +51,8 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Vent")
 	bool IsOccupied() const { return CurrentState == EVentState::Occupied; }
 
+	AScavengerCharacter* GetOccupant() const { return OccupantCharacter.Get(); }
+
 protected:
 	virtual void BeginPlay() override;
 

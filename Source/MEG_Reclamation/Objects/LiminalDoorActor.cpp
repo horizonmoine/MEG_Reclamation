@@ -91,7 +91,11 @@ void ALiminalDoorActor::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-	UpdateDoorSwing(DeltaSeconds);
+	// Clients render the replicated angle; TargetAngle is server-only.
+	if (HasAuthority())
+	{
+		UpdateDoorSwing(DeltaSeconds);
+	}
 
 	// Timer d'auto-fermeture
 	if (HasAuthority() && CurrentState == EDoorState::Open && AutoCloseDelaySeconds > 0.0f)
@@ -315,10 +319,8 @@ void ALiminalDoorActor::UpdateDoorSwing(float DeltaSeconds)
 	}
 	else if (CurrentState == EDoorState::Closing)
 	{
-		const float Direction = FMath::Sign(0.0f - CurrentAngle);
-		CurrentAngle += Direction * CloseSpeed * DeltaSeconds;
-
-		if (FMath::Abs(CurrentAngle) < 1.0f)
+		CurrentAngle = FMath::FInterpConstantTo(CurrentAngle, 0.0f, DeltaSeconds, CloseSpeed);
+		if (FMath::IsNearlyZero(CurrentAngle))
 		{
 			CurrentAngle = 0.0f;
 			bReachedTarget = true;

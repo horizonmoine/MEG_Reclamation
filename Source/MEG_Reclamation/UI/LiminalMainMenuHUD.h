@@ -106,6 +106,7 @@ private:
 	int32 MaxButtonCount = 0;
 	float InputCooldown = 0.0f;
 	bool bWaitingForAnyKey = true;
+	bool bConfirmNewCampaign = false;
 
 	// Animation
 	float TitlePulseTimer = 0.0f;

@@ -80,7 +80,7 @@ void ALiminalEntity_Smiler::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-	if (HasAuthority() && !IsStunned())
+	if (HasAuthority() && !IsStunned() && !IsCalmed())
 	{
 		UpdateSensoryReactions(DeltaSeconds);
 	}
@@ -103,7 +103,7 @@ void ALiminalEntity_Smiler::UpdateSensoryReactions(float DeltaSeconds)
 	for (TActorIterator<AScavengerCharacter> It(World); It; ++It)
 	{
 		AScavengerCharacter* Player = *It;
-		if (!Player || Player->IsDead())
+		if (!Player || Player->IsDead() || Player->IsDowned() || Player->IsHiddenInSpot())
 		{
 			continue;
 		}
@@ -121,6 +121,13 @@ void ALiminalEntity_Smiler::UpdateSensoryReactions(float DeltaSeconds)
 
 		if (LookDot > 0.80f)
 		{
+			FCollisionQueryParams SightParams(SCENE_QUERY_STAT(SmilerGaze), false, Player);
+			FHitResult SightHit;
+			if (World->LineTraceSingleByChannel(SightHit, Player->GetPawnViewLocation(), SmilerLocation,
+				ECC_Visibility, SightParams) && SightHit.GetActor() != this)
+			{
+				continue;
+			}
 			// Le joueur regarde en direction du Smiler
 			if (Player->IsHeadlampOn())
 			{
@@ -135,10 +142,11 @@ void ALiminalEntity_Smiler::UpdateSensoryReactions(float DeltaSeconds)
 		}
 	}
 
-	if (bTargetedByLight)
+	if (bTargetedByLight || bObservedInDarkness)
 	{
-		// Eclaire directement par la lampe : charge furieuse immediate !
+		// Project rule (AGENTS.md): light OR direct gaze provokes a charge.
 		bIsCharging = true;
+		CurrentChargeTimer = ChargeDuration;
 		bIsParalyzedByStare = false;
 		Movement->MaxWalkSpeed = ChargeSpeed;
 
@@ -148,35 +156,37 @@ void ALiminalEntity_Smiler::UpdateSensoryReactions(float DeltaSeconds)
 			EyeGlowRight->SetIntensity(650.0f);
 			SmileMouthGlow->SetIntensity(750.0f);
 			SmileMouthGlow->SetLightColor(FLinearColor(1.0f, 0.15f, 0.15f));
-		}
-	}
-	else if (bObservedInDarkness)
-	{
-		// Regarde fixement dans le noir sans torche : paralyse par le contact visuel
-		bIsParalyzedByStare = true;
-		bIsCharging = false;
-		Movement->StopMovementImmediately();
-		Movement->MaxWalkSpeed = 0.0f;
-
-		if (EyeGlowLeft && EyeGlowRight && SmileMouthGlow)
-		{
-			EyeGlowLeft->SetIntensity(80.0f);
-			EyeGlowRight->SetIntensity(80.0f);
-			SmileMouthGlow->SetIntensity(90.0f);
-			SmileMouthGlow->SetLightColor(FLinearColor(0.85f, 1.0f, 0.85f));
 		}
 	}
 	else if (bIsCharging)
 	{
-		bIsParalyzedByStare = false;
-		Movement->MaxWalkSpeed = ChargeSpeed;
-
-		if (EyeGlowLeft && EyeGlowRight && SmileMouthGlow)
+		CurrentChargeTimer -= DeltaSeconds;
+		if (CurrentChargeTimer <= 0.0f)
 		{
-			EyeGlowLeft->SetIntensity(650.0f);
-			EyeGlowRight->SetIntensity(650.0f);
-			SmileMouthGlow->SetIntensity(750.0f);
-			SmileMouthGlow->SetLightColor(FLinearColor(1.0f, 0.15f, 0.15f));
+			// De-escalate after charge duration when stimulus ceases
+			bIsCharging = false;
+			Movement->MaxWalkSpeed = NormalStalkSpeed;
+
+			if (EyeGlowLeft && EyeGlowRight && SmileMouthGlow)
+			{
+				EyeGlowLeft->SetIntensity(140.0f);
+				EyeGlowRight->SetIntensity(140.0f);
+				SmileMouthGlow->SetIntensity(180.0f);
+				SmileMouthGlow->SetLightColor(FLinearColor(0.95f, 1.0f, 0.95f));
+			}
+		}
+		else
+		{
+			bIsParalyzedByStare = false;
+			Movement->MaxWalkSpeed = ChargeSpeed;
+
+			if (EyeGlowLeft && EyeGlowRight && SmileMouthGlow)
+			{
+				EyeGlowLeft->SetIntensity(650.0f);
+				EyeGlowRight->SetIntensity(650.0f);
+				SmileMouthGlow->SetIntensity(750.0f);
+				SmileMouthGlow->SetLightColor(FLinearColor(1.0f, 0.15f, 0.15f));
+			}
 		}
 	}
 	else

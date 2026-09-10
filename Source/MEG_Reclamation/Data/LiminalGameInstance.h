@@ -115,6 +115,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Liminal|Save")
 	bool LoadGameFromDisk();
 
+	UFUNCTION(BlueprintCallable, Category = "Liminal|Save")
+	void ResetCampaign();
+
 	UPROPERTY(BlueprintAssignable, Category = "Liminal|Events")
 	FOnCreditsChanged OnCreditsChanged;
 

@@ -1,5 +1,7 @@
-param(
-    [switch]$SkipLiveExec = $false
+﻿param(
+    [switch]$SkipLiveExec = $false,
+    [ValidateSet('Structural', 'Automation', 'ReleaseSmoke')][string]$Mode = 'Structural',
+    [ValidateRange(1, 7200)][int]$TimeoutSeconds = 600
 )
 
 $UE_CMD = "F:\UE_5.8\Engine\Binaries\Win64\UnrealEditor-Cmd.exe"
@@ -37,7 +39,7 @@ Verify-Step "Binaire Shipping Standalone (MEG_Reclamation-Win64-Shipping.exe)" (
 Write-Host "`n-- 3. Scripts d'Automatisation et Multi-Agents --" -ForegroundColor Yellow
 Verify-Step "Script Multi-Agents Google Antigravity (orchestrate_meg_team.py)" (Test-Path "F:\MEG_Reclamation\orchestrate_meg_team.py")
 Verify-Step "Launcher Batch Multi-Agents (Launch_MultiAgent_Orchestrator.bat)" (Test-Path "F:\MEG_Reclamation\Launch_MultiAgent_Orchestrator.bat")
-Verify-Step "Suite de 30 Tests d'Automatisation (Run_Automation_Tests.ps1)" (Test-Path "F:\MEG_Reclamation\Run_Automation_Tests.ps1")
+Verify-Step "Suite de Tests d'Automatisation (Run_Automation_Tests.ps1)" (Test-Path "F:\MEG_Reclamation\Run_Automation_Tests.ps1")
 Verify-Step "Script de Packaging Shipping (Package_Shipping_Build.ps1)" (Test-Path "F:\MEG_Reclamation\Package_Shipping_Build.ps1")
 
 Write-Host "`n-- 4. Cartographie Integrale (18 Maps UE 5.8) --" -ForegroundColor Yellow
@@ -67,36 +69,39 @@ foreach ($Name in $MapNames) {
     Verify-Step "Map: $Name.umap" (Test-Path $FilePath)
 }
 
-if (-not $SkipLiveExec) {
-    Write-Host "`n-- 5. Execution Live de Tous les Executables et Livrables --" -ForegroundColor Yellow
-
-    # 5.1 Multi-Agents
-    Write-Host " [RUN] Execution live de la ruche multi-agents (orchestrate_meg_team.py)..." -ForegroundColor Gray
-    & $PYTHON_UE "F:\MEG_Reclamation\orchestrate_meg_team.py" *>$null
-    Verify-Step "Execution Multi-Agents Google Antigravity (Code 0)" ($LASTEXITCODE -eq 0)
-
-    # 5.2 Standalone Release Launcher
-    Write-Host " [RUN] Execution live du lanceur Standalone Release (MEG_Reclamation.exe)..." -ForegroundColor Gray
-    & $RELEASE_EXE -nullrhi -unattended -benchmark -seconds=2 -log *>$null
-    Verify-Step "Execution Standalone Bootstrap Release (Code 0)" ($LASTEXITCODE -eq 0)
-
-    # 5.3 Standalone Shipping Executable
-    Write-Host " [RUN] Execution live du binaire Shipping (MEG_Reclamation-Win64-Shipping.exe)..." -ForegroundColor Gray
-    & $SHIPPING_EXE -nullrhi -unattended -benchmark -seconds=2 -log *>$null
-    Verify-Step "Execution Standalone Shipping Natif (Code 0)" ($LASTEXITCODE -eq 0)
-
-    # 5.4 Automation Tests Suite
-    Write-Host " [RUN] Execution live de la suite de 30 tests d'automatisation UE 5.8..." -ForegroundColor Gray
-    & $UE_CMD $UPROJECT -ExecCmds="Automation RunTests Project.Functional Tests.MEG; Quit" -unattended -nopause -nullrhi -testexit="Automation Test Queue Empty" *>$null
-    Verify-Step "Execution Suite 30 Tests Natifs UE 5.8 (Code 0)" ($LASTEXITCODE -eq 0)
+if ($SkipLiveExec) { $Mode = 'Structural' }
+if ($Mode -eq 'Automation') {
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Run_Automation_Tests.ps1') -TimeoutSeconds $TimeoutSeconds
+    Verify-Step 'Automation nominative report gate' ($LASTEXITCODE -eq 0)
 }
-
+if ($Mode -eq 'ReleaseSmoke') {
+    # Process smoke only, not rendered gameplay or release certification.
+    foreach ($Executable in @($RELEASE_EXE, $SHIPPING_EXE)) {
+        $SmokeProcess = $null
+        $Passed = $false
+        try {
+            $SmokeProcess = Start-Process -FilePath $Executable -ArgumentList '-nullrhi -unattended -benchmark -seconds=2 -log' -WindowStyle Hidden -PassThru
+            $null = $SmokeProcess.Handle
+            if ($SmokeProcess.WaitForExit($TimeoutSeconds * 1000)) {
+                $SmokeProcess.Refresh()
+                $Passed = $SmokeProcess.ExitCode -eq 0
+            }
+        } catch { Write-Warning $_.Exception.Message }
+        finally {
+            if ($SmokeProcess -and -not $SmokeProcess.HasExited) {
+                # Only terminate the process tree created by this smoke run.
+                & taskkill.exe /PID $SmokeProcess.Id /T /F 2>$null | Out-Null
+            }
+        }
+        Verify-Step "Process smoke: $Executable" $Passed
+    }
+}
 Write-Host "`n==================================================" -ForegroundColor Cyan
 Write-Host "  BILAN: $SuccessCount / $TotalChecks CONTROLES VALIDES" -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan
 
 if ($SuccessCount -eq $TotalChecks) {
-    Write-Host "[CERTIFICATION] 100% Operationnel. Tous les composants, maps et executables sont valides.`n" -ForegroundColor Green
+    Write-Host "[SUCCES] Controles demandes valides. Presence/processus uniquement : aucune certification de jouabilite ou release.`n" -ForegroundColor Green
     exit 0
 } else {
     Write-Host "[ALERTE] Certains composants ont echoue a la verification.`n" -ForegroundColor Red

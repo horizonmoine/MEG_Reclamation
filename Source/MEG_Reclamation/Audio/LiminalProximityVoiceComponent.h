@@ -53,6 +53,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Liminal|Voice")
 	EVoiceTransmissionMode GetCurrentTransmissionMode() const { return CurrentMode; }
 
+	/** Current RMS loudness from the microphone capture (0.0 to 1.0) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Liminal|Voice")
+	float CurrentAcousticRMS = 0.0f;
+
 	UPROPERTY(BlueprintAssignable, Category = "Liminal|Voice")
 	FOnVoiceSpeakingStateChanged OnVoiceSpeakingStateChanged;
 

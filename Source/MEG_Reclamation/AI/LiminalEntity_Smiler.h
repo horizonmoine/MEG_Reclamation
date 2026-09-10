@@ -10,7 +10,7 @@ class UPointLightComponent;
  * Smiler : Entite insidieuse du Niveau 0.
  * Invisible dans l'obscurite totale (yeux lumineux visibles a courte portee).
  * S'il est eclaire directement par une lampe torche, il hurle et charge.
- * S'il est regarde fixement dans le noir sans lumiere, il est paralyse.
+ * Le regard direct provoque egalement une charge (adaptation M.E.G., AGENTS.md).
  */
 UCLASS()
 class MEG_RECLAMATION_API ALiminalEntity_Smiler : public ALiminalEntity
@@ -55,10 +55,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Smiler|Detection", meta = (ClampMin = "100.0"))
 	float StareDetectionRange = 1400.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Smiler|Combat")
+	float ChargeDuration = 6.0f;
+
 private:
 	void UpdateSensoryReactions(float DeltaSeconds);
 
 	bool bIsCharging = false;
 	bool bIsParalyzedByStare = false;
 	float StareTimer = 0.0f;
+	float CurrentChargeTimer = 0.0f;
 };
