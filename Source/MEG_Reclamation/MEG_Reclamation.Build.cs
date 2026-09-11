@@ -11,6 +11,7 @@ public class MEG_Reclamation : ModuleRules
 		PublicDependencyModuleNames.AddRange(new string[] {
 			"Core",
 			"CoreUObject",
+			"CoreOnline",
 			"Engine",
 			"InputCore",
 			"EnhancedInput",

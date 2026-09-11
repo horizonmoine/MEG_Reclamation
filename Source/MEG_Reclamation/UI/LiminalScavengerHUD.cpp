@@ -1043,17 +1043,18 @@ void ALiminalScavengerHUD::HandleTerminalInput()
 		// Validation / Achat
 		if (PC->WasInputKeyJustPressed(EKeys::Enter) || PC->WasInputKeyJustPressed(EKeys::SpaceBar) || PC->WasInputKeyJustPressed(EKeys::LeftMouseButton))
 		{
-			if (TerminalActiveTab == 0 && ActiveTerminal.IsValid())
+			AScavengerCharacter* Scav = GetOwningScavenger();
+			if (TerminalActiveTab == 0 && ActiveTerminal.IsValid() && Scav)
 			{
-				ActiveTerminal->ServerSelectBiome(static_cast<ELevelBiome>(TerminalSelectedIndex));
+				Scav->ServerTerminalSelectBiome(ActiveTerminal.Get(), static_cast<ELevelBiome>(TerminalSelectedIndex));
 				TerminalInputCooldown = 0.25f;
 			}
-			else if (TerminalActiveTab == 1 && ActiveTerminal.IsValid())
+			else if (TerminalActiveTab == 1 && ActiveTerminal.IsValid() && Scav)
 			{
 				const TArray<FTerminalStoreItem>& Catalog = ActiveTerminal->GetStoreCatalog();
 				if (Catalog.IsValidIndex(TerminalSelectedIndex))
 				{
-					ActiveTerminal->ServerPurchaseStoreItem(Catalog[TerminalSelectedIndex].ItemId, GetOwningScavenger());
+					Scav->ServerTerminalPurchaseItem(ActiveTerminal.Get(), Catalog[TerminalSelectedIndex].ItemId);
 					TerminalInputCooldown = 0.25f;
 				}
 			}
