@@ -1,0 +1,6 @@
+# Violations heritees tolerees par scripts/ci/lint_ue_network.py (retrogradees en WARN).
+# Format : "chemin: message" exact. Retirer la ligne des que la mission correspondante est livree.
+# INTERDIT d'ajouter une violation introduite par du code nouveau.
+
+# Mission 01 : DownedTimeRemaining replique sur le Character -> DownedStartServerTime dans ALiminalPlayerState
+Source/MEG_Reclamation/Player/ScavengerCharacter.h: float replique *TimeRemaining : repliquer un timestamp serveur (StartServerTime)

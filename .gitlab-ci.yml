@@ -1,0 +1,30 @@
+# CI legere executable sur runners partages Linux (pas de build UE ici).
+# Le build UE, les tests natifs et le packaging restent locaux via les scripts PowerShell.
+stages:
+  - lint
+
+ue_network_lint:
+  stage: lint
+  image: python:3.12-alpine
+  script:
+    - python scripts/ci/lint_ue_network.py Source
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH
+      changes:
+        - Source/**/*
+        - scripts/ci/**/*
+
+mission_docs_check:
+  stage: lint
+  image: alpine:3.20
+  script:
+    - test -f .agents/rules/ue5_cpp_network_rules.md
+    - test -f docs/architecture/NETWORK_ARCHITECTURE.md
+    - for n in 00 01 02 03 04 05; do ls docs/missions/${n}_*.md >/dev/null || { echo "mission $n manquante"; exit 1; }; done
+    - grep -q "ue5_cpp_network_rules.md" GEMINI.md
+    - grep -q "ue5_cpp_network_rules.md" opencode.json
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
