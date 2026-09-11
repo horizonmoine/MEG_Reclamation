@@ -86,6 +86,9 @@ protected:
 	void SpawnNonEuclideanPortals();
 	void SetupNavMeshBounds();
 	FVector CellToWorld(int32 X, int32 Y, float Z = 0.0f) const;
+	TArray<FIntPoint> GetExtractionDoorwayCells(const FProcRoom& FarthestRoom) const;
+	TArray<int32> GetPreExtractionReachableRooms() const;
+	TSet<FIntPoint> GetInteractiveActorCells() const;
 
 public:
 	UPROPERTY(ReplicatedUsing = OnRep_Seed)

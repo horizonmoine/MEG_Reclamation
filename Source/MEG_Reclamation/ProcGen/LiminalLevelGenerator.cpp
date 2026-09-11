@@ -822,6 +822,179 @@ void ALiminalLevelGenerator::SpawnPlayerStarts()
 	}
 }
 
+TArray<FIntPoint> ALiminalLevelGenerator::GetExtractionDoorwayCells(const FProcRoom& FarthestRoom) const
+{
+	TArray<FIntPoint> DoorwayCells;
+	for (int32 Y = FarthestRoom.OriginY; Y < FarthestRoom.OriginY + FarthestRoom.SizeY; ++Y)
+	{
+		for (int32 X = FarthestRoom.OriginX; X < FarthestRoom.OriginX + FarthestRoom.SizeX; ++X)
+		{
+			const bool bIsBoundary = (X == FarthestRoom.OriginX || X == FarthestRoom.OriginX + FarthestRoom.SizeX - 1 ||
+			                          Y == FarthestRoom.OriginY || Y == FarthestRoom.OriginY + FarthestRoom.SizeY - 1);
+			if (!bIsBoundary)
+			{
+				continue;
+			}
+
+			const int32 Offsets[4][2] = { { 0, -1 }, { 0, 1 }, { -1, 0 }, { 1, 0 } };
+			for (const auto& Offset : Offsets)
+			{
+				const int32 Nx = X + Offset[0];
+				const int32 Ny = Y + Offset[1];
+				const bool bNeighborInside = (Nx >= FarthestRoom.OriginX && Nx < FarthestRoom.OriginX + FarthestRoom.SizeX &&
+				                              Ny >= FarthestRoom.OriginY && Ny < FarthestRoom.OriginY + FarthestRoom.SizeY);
+				if (!bNeighborInside && CurrentLayout.IsFloor(Nx, Ny))
+				{
+					DoorwayCells.AddUnique(FIntPoint(X, Y));
+				}
+			}
+		}
+	}
+	if (DoorwayCells.IsEmpty())
+	{
+		DoorwayCells.Add(FIntPoint(FarthestRoom.CenterX, FarthestRoom.OriginY));
+	}
+	return DoorwayCells;
+}
+
+TArray<int32> ALiminalLevelGenerator::GetPreExtractionReachableRooms() const
+{
+	TArray<int32> ReachableIndices;
+	if (CurrentLayout.Rooms.Num() < 2)
+	{
+		return ReachableIndices;
+	}
+
+	const FProcRoom& SpawnRoom = CurrentLayout.Rooms[0];
+	const FIntPoint SpawnCenter(SpawnRoom.CenterX, SpawnRoom.CenterY);
+
+	TSet<FIntPoint> BlockedCells;
+	if (CurrentLayout.Rooms.IsValidIndex(CurrentLayout.ExtractionRoomIndex))
+	{
+		const TArray<FIntPoint> Doorways = GetExtractionDoorwayCells(CurrentLayout.Rooms[CurrentLayout.ExtractionRoomIndex]);
+		for (const FIntPoint& DoorCell : Doorways)
+		{
+			BlockedCells.Add(DoorCell);
+		}
+	}
+
+	TSet<FIntPoint> Visited;
+	TArray<FIntPoint> Queue;
+	Queue.Add(SpawnCenter);
+	Visited.Add(SpawnCenter);
+
+	int32 Head = 0;
+	const int32 Offsets[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
+	while (Head < Queue.Num())
+	{
+		const FIntPoint Curr = Queue[Head++];
+		for (const auto& Offset : Offsets)
+		{
+			const FIntPoint Next(Curr.X + Offset[0], Curr.Y + Offset[1]);
+			if (Visited.Contains(Next) || BlockedCells.Contains(Next) || !CurrentLayout.IsFloor(Next.X, Next.Y))
+			{
+				continue;
+			}
+			Visited.Add(Next);
+			Queue.Add(Next);
+		}
+	}
+
+	for (int32 Index = 1; Index < CurrentLayout.Rooms.Num(); ++Index)
+	{
+		if (Index != CurrentLayout.ExtractionRoomIndex)
+		{
+			const FProcRoom& Room = CurrentLayout.Rooms[Index];
+			if (Visited.Contains(FIntPoint(Room.CenterX, Room.CenterY)))
+			{
+				ReachableIndices.Add(Index);
+			}
+		}
+	}
+
+	return ReachableIndices;
+}
+
+TSet<FIntPoint> ALiminalLevelGenerator::GetInteractiveActorCells() const
+{
+	TSet<FIntPoint> InteractiveCells;
+	if (CurrentLayout.Rooms.IsEmpty())
+	{
+		return InteractiveCells;
+	}
+
+	const TArray<int32> PreReachable = GetPreExtractionReachableRooms();
+
+	// 1. Spawn des joueurs
+	const FProcRoom& FirstRoom = CurrentLayout.Rooms[0];
+	InteractiveCells.Add(FIntPoint(FirstRoom.CenterX, FirstRoom.CenterY));
+
+	// 2. Zone d'extraction et portes blindees
+	if (CurrentLayout.Rooms.IsValidIndex(CurrentLayout.ExtractionRoomIndex))
+	{
+		const FProcRoom& FarthestRoom = CurrentLayout.Rooms[CurrentLayout.ExtractionRoomIndex];
+		InteractiveCells.Add(FIntPoint(FarthestRoom.CenterX, FarthestRoom.CenterY));
+
+		const TArray<FIntPoint> Doorways = GetExtractionDoorwayCells(FarthestRoom);
+		for (const FIntPoint& DoorCell : Doorways)
+		{
+			InteractiveCells.Add(DoorCell);
+		}
+	}
+
+	// 3. Disjoncteur
+	if (CurrentLayout.Rooms.Num() >= 3)
+	{
+		const int32 BreakerRoomIndex = (PreReachable.Num() > 0) ?
+			PreReachable[PreReachable.Num() / 2] :
+			FMath::Clamp(CurrentLayout.Rooms.Num() / 2, 1, CurrentLayout.Rooms.Num() - 1);
+		const FProcRoom& BreakerRoom = CurrentLayout.Rooms[BreakerRoomIndex];
+		InteractiveCells.Add(FIntPoint(BreakerRoom.CenterX, BreakerRoom.CenterY));
+	}
+
+	// 4. Clavier a code (digicode)
+	if (CurrentLayout.Rooms.Num() >= 6)
+	{
+		const int32 KeypadRoomIndex = (PreReachable.Num() > 0) ?
+			PreReachable[PreReachable.Num() / 3] :
+			FMath::Clamp(CurrentLayout.Rooms.Num() / 3, 1, CurrentLayout.Rooms.Num() - 1);
+		const FProcRoom& KeypadRoom = CurrentLayout.Rooms[KeypadRoomIndex];
+		InteractiveCells.Add(FIntPoint(KeypadRoom.CenterX, KeypadRoom.CenterY));
+	}
+
+	// 5. Vanne a vapeur
+	if (CurrentLayout.Rooms.Num() >= 3)
+	{
+		const int32 ValveRoomIndex = (PreReachable.Num() > 0) ?
+			PreReachable[PreReachable.Num() / 3] :
+			FMath::Clamp(CurrentLayout.Rooms.Num() / 3, 1, CurrentLayout.Rooms.Num() - 1);
+		const FProcRoom& ValveRoom = CurrentLayout.Rooms[ValveRoomIndex];
+		InteractiveCells.Add(FIntPoint(ValveRoom.CenterX, ValveRoom.CenterY));
+	}
+
+	// 6. Boitier de fusibles M.E.G.
+	if (CurrentLayout.Rooms.Num() >= 4)
+	{
+		const int32 FuseRoomIndex = (PreReachable.Num() > 0) ?
+			PreReachable[(PreReachable.Num() * 2) / 3] :
+			FMath::Clamp((CurrentLayout.Rooms.Num() * 2) / 3, 1, CurrentLayout.Rooms.Num() - 1);
+		const FProcRoom& FuseRoom = CurrentLayout.Rooms[FuseRoomIndex];
+		InteractiveCells.Add(FIntPoint(FuseRoom.CenterX, FuseRoom.CenterY));
+	}
+
+	// 7. Cle physique M.E.G.
+	if (CurrentLayout.Rooms.Num() >= 4)
+	{
+		const int32 KeyRoomIndex = (PreReachable.Num() > 0) ?
+			PreReachable[0] :
+			((CurrentLayout.ExtractionRoomIndex == 1 && CurrentLayout.Rooms.Num() > 2) ? 2 : 1);
+		const FProcRoom& KeyRoom = CurrentLayout.Rooms[KeyRoomIndex];
+		InteractiveCells.Add(FIntPoint(KeyRoom.CenterX, KeyRoom.CenterY));
+	}
+
+	return InteractiveCells;
+}
+
 void ALiminalLevelGenerator::SpawnExtraction(const FProcRoom& FarthestRoom)
 {
 	UWorld* World = GetWorld();
@@ -843,11 +1016,15 @@ void ALiminalLevelGenerator::SpawnExtraction(const FProcRoom& FarthestRoom)
 	}
 	SpawnedActors.Add(Zone);
 
+	const TArray<int32> PreReachable = GetPreExtractionReachableRooms();
+
 	// Puzzles d'extraction proceduraux (Disjoncteur / Clavier a code)
 	// Si le niveau possede au moins 3 salles, on place un disjoncteur dans une salle intermediaire
 	if (CurrentLayout.Rooms.Num() >= 3)
 	{
-		const int32 BreakerRoomIndex = FMath::Clamp(CurrentLayout.Rooms.Num() / 2, 1, CurrentLayout.Rooms.Num() - 1);
+		const int32 BreakerRoomIndex = (PreReachable.Num() > 0) ?
+			PreReachable[PreReachable.Num() / 2] :
+			FMath::Clamp(CurrentLayout.Rooms.Num() / 2, 1, CurrentLayout.Rooms.Num() - 1);
 		const FProcRoom& BreakerRoom = CurrentLayout.Rooms[BreakerRoomIndex];
 		const FVector BreakerLoc = CellToWorld(BreakerRoom.CenterX, BreakerRoom.CenterY, 120.0f);
 
@@ -868,7 +1045,9 @@ void ALiminalLevelGenerator::SpawnExtraction(const FProcRoom& FarthestRoom)
 	if (CurrentLayout.Rooms.Num() >= 6 &&
 		(Biome == ELevelBiome::Level3_ElectricalStation || Biome == ELevelBiome::Level4_AbandonedOffice || Biome == ELevelBiome::Level1_HabitableZone))
 	{
-		const int32 KeypadRoomIndex = FMath::Clamp(CurrentLayout.Rooms.Num() / 3, 1, CurrentLayout.Rooms.Num() - 1);
+		const int32 KeypadRoomIndex = (PreReachable.Num() > 0) ?
+			PreReachable[PreReachable.Num() / 3] :
+			FMath::Clamp(CurrentLayout.Rooms.Num() / 3, 1, CurrentLayout.Rooms.Num() - 1);
 		if (KeypadRoomIndex != (CurrentLayout.Rooms.Num() / 2))
 		{
 			const FProcRoom& KeypadRoom = CurrentLayout.Rooms[KeypadRoomIndex];
@@ -899,7 +1078,9 @@ void ALiminalLevelGenerator::SpawnExtraction(const FProcRoom& FarthestRoom)
 	// Puzzle de vanne a vapeur sous pression (Pipe Dreams - Level 2)
 	if (CurrentLayout.Rooms.Num() >= 3 && Biome == ELevelBiome::Level2_PipeDreams)
 	{
-		const int32 ValveRoomIndex = FMath::Clamp(CurrentLayout.Rooms.Num() / 3, 1, CurrentLayout.Rooms.Num() - 1);
+		const int32 ValveRoomIndex = (PreReachable.Num() > 0) ?
+			PreReachable[PreReachable.Num() / 3] :
+			FMath::Clamp(CurrentLayout.Rooms.Num() / 3, 1, CurrentLayout.Rooms.Num() - 1);
 		const FProcRoom& ValveRoom = CurrentLayout.Rooms[ValveRoomIndex];
 		const FVector ValveLoc = CellToWorld(ValveRoom.CenterX, ValveRoom.CenterY, 120.0f);
 
@@ -919,7 +1100,9 @@ void ALiminalLevelGenerator::SpawnExtraction(const FProcRoom& FarthestRoom)
 	if (CurrentLayout.Rooms.Num() >= 4 &&
 		(Biome == ELevelBiome::Level3_ElectricalStation || Biome == ELevelBiome::Level1_HabitableZone))
 	{
-		const int32 FuseRoomIndex = FMath::Clamp((CurrentLayout.Rooms.Num() * 2) / 3, 1, CurrentLayout.Rooms.Num() - 1);
+		const int32 FuseRoomIndex = (PreReachable.Num() > 0) ?
+			PreReachable[(PreReachable.Num() * 2) / 3] :
+			FMath::Clamp((CurrentLayout.Rooms.Num() * 2) / 3, 1, CurrentLayout.Rooms.Num() - 1);
 		const FProcRoom& FuseRoom = CurrentLayout.Rooms[FuseRoomIndex];
 		const FVector FuseLoc = CellToWorld(FuseRoom.CenterX, FuseRoom.CenterY, 120.0f);
 
@@ -938,7 +1121,9 @@ void ALiminalLevelGenerator::SpawnExtraction(const FProcRoom& FarthestRoom)
 	// Verrouillage de securite et cle physique M.E.G. dans les niveaux etendus (>= 4 salles)
 	if (CurrentLayout.Rooms.Num() >= 4)
 	{
-		const int32 KeyRoomIndex = 1;
+		const int32 KeyRoomIndex = (PreReachable.Num() > 0) ?
+			PreReachable[0] :
+			((CurrentLayout.ExtractionRoomIndex == 1 && CurrentLayout.Rooms.Num() > 2) ? 2 : 1);
 		const FProcRoom& KeyRoom = CurrentLayout.Rooms[KeyRoomIndex];
 		const FVector KeyLoc = CellToWorld(KeyRoom.CenterX, KeyRoom.CenterY, 50.0f);
 
@@ -955,19 +1140,39 @@ void ALiminalLevelGenerator::SpawnExtraction(const FProcRoom& FarthestRoom)
 			SpawnedActors.Add(KeyItem);
 		}
 
-		// Porte blindee verouillee a l'entree de la zone d'extraction
-		const FVector DoorLoc = CellToWorld(FarthestRoom.CenterX, FarthestRoom.OriginY, 100.0f);
-		ALiminalDoorActor* SectorDoor = World->SpawnActor<ALiminalDoorActor>(
-			ALiminalDoorActor::StaticClass(),
-			DoorLoc,
-			FRotator::ZeroRotator,
-			Params);
-
-		if (SectorDoor)
+		// Portes blindees verrouillees a toutes les entrees de la zone d'extraction
+		const TArray<FIntPoint> DoorwayCells = GetExtractionDoorwayCells(FarthestRoom);
+		for (const FIntPoint& DoorCell : DoorwayCells)
 		{
-			SectorDoor->RequiredKeyTag = ExtractionKeyTag;
-			SectorDoor->Lock();
-			SpawnedActors.Add(SectorDoor);
+			// Determiner l'orientation selon la direction du couloir exterieur
+			float DoorYaw = 0.0f;
+			const int32 Offsets[4][2] = { { 0, -1 }, { 0, 1 }, { -1, 0 }, { 1, 0 } };
+			for (const auto& Offset : Offsets)
+			{
+				const int32 Nx = DoorCell.X + Offset[0];
+				const int32 Ny = DoorCell.Y + Offset[1];
+				const bool bNeighborInside = (Nx >= FarthestRoom.OriginX && Nx < FarthestRoom.OriginX + FarthestRoom.SizeX &&
+				                              Ny >= FarthestRoom.OriginY && Ny < FarthestRoom.OriginY + FarthestRoom.SizeY);
+				if (!bNeighborInside && CurrentLayout.IsFloor(Nx, Ny))
+				{
+					DoorYaw = (Offset[0] != 0) ? 90.0f : 0.0f;
+					break;
+				}
+			}
+
+			const FVector DoorLoc = CellToWorld(DoorCell.X, DoorCell.Y, 100.0f);
+			ALiminalDoorActor* SectorDoor = World->SpawnActor<ALiminalDoorActor>(
+				ALiminalDoorActor::StaticClass(),
+				DoorLoc,
+				FRotator(0.0f, DoorYaw, 0.0f),
+				Params);
+
+			if (SectorDoor)
+			{
+				SectorDoor->RequiredKeyTag = ExtractionKeyTag;
+				SectorDoor->Lock();
+				SpawnedActors.Add(SectorDoor);
+			}
 		}
 	}
 }
@@ -982,6 +1187,33 @@ void ALiminalLevelGenerator::SpawnLoots()
 
 	FRandomStream LootStream(Seed * 31 + 7);
 
+	const TSet<FIntPoint> InteractiveCells = GetInteractiveActorCells();
+
+	TSet<FIntPoint> PillarCells;
+	for (const FProcRoom& Room : CurrentLayout.Rooms)
+	{
+		if (Room.SizeX >= 3 && Room.SizeY >= 3)
+		{
+			for (int32 Py = Room.OriginY + 1; Py < Room.OriginY + Room.SizeY - 1; Py += 2)
+			{
+				for (int32 Px = Room.OriginX + 1; Px < Room.OriginX + Room.SizeX - 1; Px += 2)
+				{
+					if (!InteractiveCells.Contains(FIntPoint(Px, Py)))
+					{
+						PillarCells.Add(FIntPoint(Px, Py));
+					}
+				}
+			}
+		}
+	}
+
+	TSet<FIntPoint> PropCells;
+	for (const FProcRoom& Room : CurrentLayout.Rooms)
+	{
+		PropCells.Add(FIntPoint(Room.OriginX, Room.OriginY));
+		PropCells.Add(FIntPoint(Room.OriginX + 1, Room.OriginY + 1));
+	}
+
 	TArray<FIntPoint> Candidates;
 	for (const FProcRoom& Room : CurrentLayout.Rooms)
 	{
@@ -989,7 +1221,13 @@ void ALiminalLevelGenerator::SpawnLoots()
 		{
 			for (int32 X = Room.OriginX; X < Room.OriginX + Room.SizeX; ++X)
 			{
-				Candidates.Add(FIntPoint(X, Y));
+				const FIntPoint CandidateCell(X, Y);
+				if (!PillarCells.Contains(CandidateCell) &&
+				    !PropCells.Contains(CandidateCell) &&
+				    !InteractiveCells.Contains(CandidateCell))
+				{
+					Candidates.Add(CandidateCell);
+				}
 			}
 		}
 	}
@@ -2061,6 +2299,8 @@ void ALiminalLevelGenerator::SpawnPillarsAndFixtures()
 
 	const bool bIsCustomPillar = PillarInstances->GetStaticMesh() && (PillarInstances->GetStaticMesh()->GetBounds().BoxExtent.Z > 100.0f);
 
+	const TSet<FIntPoint> ExcludedCells = GetInteractiveActorCells();
+
 	for (const FProcRoom& Room : CurrentLayout.Rooms)
 	{
 		// 1. Colonnes & Piliers interieurs (caracteristique majeure du Level 0 et des Poolrooms)
@@ -2075,6 +2315,11 @@ void ALiminalLevelGenerator::SpawnPillarsAndFixtures()
 			{
 				for (int32 Px = Room.OriginX + 1; Px < Room.OriginX + Room.SizeX - 1; Px += 2)
 				{
+					if (ExcludedCells.Contains(FIntPoint(Px, Py)))
+					{
+						continue;
+					}
+
 					FTransform PillarTrans(FRotator::ZeroRotator, CellToWorld(Px, Py, PillarZ), PillarScale);
 					PillarInstances->AddInstance(PillarTrans);
 				}
