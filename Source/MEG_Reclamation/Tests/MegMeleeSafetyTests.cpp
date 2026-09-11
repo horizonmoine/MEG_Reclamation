@@ -5,11 +5,12 @@
 #include "Components/BoxComponent.h"
 #include "Engine/World.h"
 #include "Engine/DamageEvents.h"
+#include "GameFramework/GameModeBase.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/AutomationTest.h"
 #include "Player/ScavengerCharacter.h"
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegMeleeSafetyTest, "Project.Functional Tests.MEG.MeleeSafety",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegMeleeSafetyTest, "Project.Functional Tests.MEG.MeleeSafety.PawnDamage",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegMeleeSafetyTest::RunTest(const FString& Parameters)
@@ -62,7 +63,7 @@ bool FMegMeleeSafetyTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegSmilerVisibilityTest, "Project.Functional Tests.MEG.SmilerVisibility",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegSmilerVisibilityTest, "Project.Functional Tests.MEG.MeleeSafety.SmilerVisibility",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMegSmilerVisibilityTest::RunTest(const FString& Parameters)
