@@ -64,13 +64,42 @@ public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
 
+	/** Durée maximale autorisée en secondes avant expiration définitive de la stase (180s par défaut). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Liminal|Session")
+	float StasisExpirationSeconds = 180.0f;
+
+	UFUNCTION(BlueprintPure, Category = "Liminal|Session")
+	float GetStasisExpirationSeconds() const { return StasisExpirationSeconds; }
+
+	UFUNCTION(BlueprintCallable, Category = "Liminal|Session")
+	void SetStasisExpirationSeconds(float InSeconds) { StasisExpirationSeconds = FMath::Max(0.0f, InSeconds); }
+
+	/** Vérifie si l'enregistrement de stase d'un joueur est expiré. */
+	UFUNCTION(BlueprintPure, Category = "Liminal|Session")
+	bool IsStasisExpired(const FString& PlayerUniqueId) const;
+
+	/** Enregistre explicitement une identité persistante authentifiée pour un contrôleur. */
+	UFUNCTION(BlueprintCallable, Category = "Liminal|Session")
+	void RegisterAuthenticatedPlayerId(const AController* Controller, const FString& InPlayerId);
+
+	/**
+	 * Résout l'identité persistante authentifiée d'un contrôleur.
+	 * Utilise l'UniqueNetId de l'OnlineSubsystem, le NetConnection PlayerId ou le token persistant.
+	 * Rejette catégoriquement PlayerState.GetPlayerId() (compteur session volatil) et le pseudo (homonymes).
+	 */
+	UFUNCTION(BlueprintPure, Category = "Liminal|Session")
+	FString GetAuthenticatedPlayerId(const AController* Controller) const;
+
 	/** Enregistre la deconnexion imprevue d'un joueur et place son corps/donnees en stase. */
 	UFUNCTION(BlueprintCallable, Category = "Liminal|Session")
 	bool RegisterPlayerDisconnect(AController* ExitingController);
 
-	/** Restaure les donnees et l'inventaire d'un joueur qui se reconnecte. */
+	/** Restaure les donnees et l'inventaire d'un joueur qui se reconnecte par reprise de son pawn en stase. */
 	UFUNCTION(BlueprintCallable, Category = "Liminal|Session")
 	bool TryRestorePlayer(AController* JoiningController);
+
+	/** Traitement de l'expiration de stase : relâchement du loot au sol pour l'escouade et marquage décès du pawn. */
+	void HandleStasisExpiration(const FPlayerStasisRecord& Record);
 
 	/** Verifie si un joueur a des donnees en stase. */
 	UFUNCTION(BlueprintPure, Category = "Liminal|Session")
@@ -97,9 +126,11 @@ protected:
 	UPROPERTY()
 	TMap<FString, FPlayerStasisRecord> ActiveStasisRecords;
 
+	TMap<TWeakObjectPtr<const AController>, FString> AuthenticatedControllerIds;
+
 	/** Vitesse max toleree en units/sec avant flag de hack (comprenant sprint et boost d'adrenaline). */
 	UPROPERTY(EditDefaultsOnly, Category = "Liminal|Security")
 	float MaxAllowedPawnSpeed = 1600.0f;
 
-	FString GetUniquePlayerIdFromController(AController* Controller) const;
+	FString GetUniquePlayerIdFromController(AController* Controller) const { return GetAuthenticatedPlayerId(Controller); }
 };

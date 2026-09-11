@@ -19,6 +19,8 @@ class ALiminalVentActor;
 class ULiminalBodycamComponent;
 class ULiminalTetrisInventoryComponent;
 class ULiminalProximityVoiceComponent;
+class ALiminalTerminalActor;
+enum class ELevelBiome : uint8;
 
 /**
  * Personnage Recuperateur : Stamina, poids d'inventaire et Sanite.
@@ -95,6 +97,24 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Scavenger|Sanity")
 	float GetSanityPercent() const;
+
+	UFUNCTION(BlueprintPure, Category = "Scavenger|Health")
+	float GetCurrentHealth() const { return CurrentHealth; }
+
+	UFUNCTION(BlueprintPure, Category = "Scavenger|Sanity")
+	float GetCurrentSanity() const { return CurrentSanity; }
+
+	UFUNCTION(BlueprintCallable, Category = "Scavenger|Inventory")
+	void AuthSetInventoryWeight(float NewWeightKg);
+
+	UFUNCTION(BlueprintCallable, Category = "Scavenger|Stasis")
+	void EnterStasis();
+
+	UFUNCTION(BlueprintCallable, Category = "Scavenger|Stasis")
+	void ExitStasis();
+
+	UFUNCTION(BlueprintPure, Category = "Scavenger|Stasis")
+	bool IsInStasis() const { return bIsInStasis; }
 
 	UFUNCTION(BlueprintCallable, Category = "Scavenger|Carry")
 	void InputGrab();
@@ -211,6 +231,9 @@ public:
 
 	void DeliverCarriedLoot();
 
+	virtual bool ShouldTakeDamage(float Damage, struct FDamageEvent const& DamageEvent,
+		AController* EventInstigator, AActor* DamageCauser) const override;
+
 	virtual float TakeDamage(float Damage, struct FDamageEvent const& DamageEvent,
 		AController* EventInstigator, AActor* DamageCauser) override;
 
@@ -263,6 +286,15 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerInteract();
+
+	UFUNCTION(Server, Reliable, WithValidation, BlueprintCallable, Category = "Terminal|Network")
+	void ServerTerminalPurchaseItem(ALiminalTerminalActor* Terminal, FName ItemId);
+
+	UFUNCTION(Server, Reliable, WithValidation, BlueprintCallable, Category = "Terminal|Network")
+	void ServerTerminalSelectBiome(ALiminalTerminalActor* Terminal, ELevelBiome Biome);
+
+	UFUNCTION(Server, Reliable, WithValidation, BlueprintCallable, Category = "Terminal|Network")
+	void ServerTerminalLaunchIncursion(ALiminalTerminalActor* Terminal);
 
 	UFUNCTION(BlueprintPure, Category = "Scavenger|Interaction")
 	bool IsHiddenInSpot() const { return bIsHiddenInSpot; }
@@ -347,6 +379,9 @@ protected:
 
 	UFUNCTION()
 	void OnRep_CurrentSanity();
+
+	UFUNCTION()
+	void OnRep_IsInStasis();
 
 	UFUNCTION()
 	void OnRep_CarriedCredits();
@@ -621,6 +656,8 @@ private:
 	bool bIsHiddenInSpot = false;
 	UPROPERTY(Replicated)
 	bool bIsInVent = false;
+	UPROPERTY(ReplicatedUsing = OnRep_IsInStasis)
+	bool bIsInStasis = false;
 	TWeakObjectPtr<ALiminalHidingSpot> CurrentHidingSpot;
 	TWeakObjectPtr<ALiminalVentActor> CurrentVent;
 

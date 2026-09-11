@@ -37,14 +37,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Terminal")
 	void Interact(AScavengerCharacter* InteractingPlayer);
 
-	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Terminal")
-	void ServerPurchaseStoreItem(FName ItemId, AScavengerCharacter* Buyer);
+	UFUNCTION(BlueprintCallable, Category = "Terminal")
+	void PurchaseStoreItem(FName ItemId, AScavengerCharacter* Buyer);
 
-	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Terminal")
-	void ServerSelectBiome(ELevelBiome Biome);
+	UFUNCTION(BlueprintCallable, Category = "Terminal")
+	void SelectBiome(ELevelBiome Biome);
 
-	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Terminal")
-	void ServerLaunchIncursion();
+	UFUNCTION(BlueprintCallable, Category = "Terminal")
+	void LaunchIncursion();
+
+	// Backward-compatibility wrappers (not RPCs)
+	void ServerPurchaseStoreItem(FName ItemId, AScavengerCharacter* Buyer) { PurchaseStoreItem(ItemId, Buyer); }
+	void ServerSelectBiome(ELevelBiome Biome) { SelectBiome(Biome); }
+	void ServerLaunchIncursion() { LaunchIncursion(); }
 
 	UFUNCTION(BlueprintPure, Category = "Terminal")
 	const TArray<FTerminalStoreItem>& GetStoreCatalog() const { return StoreCatalog; }

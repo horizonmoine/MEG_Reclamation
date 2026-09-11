@@ -1,43 +1,115 @@
 #include "Network/LiminalSessionManager.h"
 
+#include "Engine/NetConnection.h"
 #include "GameFramework/Controller.h"
+#include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerState.h"
+#include "MEG_ReclamationPlayerController.h"
 #include "Player/ScavengerCharacter.h"
 
 void ULiminalSessionManager::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 	ActiveStasisRecords.Empty();
+	AuthenticatedControllerIds.Empty();
 }
 
 void ULiminalSessionManager::Deinitialize()
 {
 	ActiveStasisRecords.Empty();
+	AuthenticatedControllerIds.Empty();
 	Super::Deinitialize();
 }
 
-FString ULiminalSessionManager::GetUniquePlayerIdFromController(AController* Controller) const
+void ULiminalSessionManager::RegisterAuthenticatedPlayerId(const AController* Controller, const FString& InPlayerId)
+{
+	if (!Controller || InPlayerId.IsEmpty())
+	{
+		return;
+	}
+
+	AuthenticatedControllerIds.Add(Controller, InPlayerId);
+}
+
+FString ULiminalSessionManager::GetAuthenticatedPlayerId(const AController* Controller) const
 {
 	if (!Controller)
 	{
 		return FString();
 	}
 
-	if (APlayerState* PS = Controller->PlayerState)
+	// 1. Identite persistante authentifiee de l'Online Subsystem (SteamID, EOS Product User ID, etc.)
+	if (const APlayerState* PS = Controller->PlayerState)
 	{
-		if (PS->GetPlayerId() > 0)
+		const FUniqueNetIdRepl& UniqueId = PS->GetUniqueId();
+		if (UniqueId.IsValid() && UniqueId.GetUniqueNetId().IsValid())
 		{
-			return FString::Printf(TEXT("PlayerStateId_%d"), PS->GetPlayerId());
-		}
-
-		const FString PlayerName = PS->GetPlayerName();
-		if (!PlayerName.IsEmpty())
-		{
-			return PlayerName;
+			const FString NetIdStr = UniqueId.ToString();
+			if (!NetIdStr.IsEmpty())
+			{
+				return FString::Printf(TEXT("NetId_%s"), *NetIdStr);
+			}
 		}
 	}
 
-	return Controller->GetName();
+	// 2. Identifiant reseau authentifie de la connexion active
+	if (const APlayerController* PC = Cast<APlayerController>(Controller))
+	{
+		if (const UNetConnection* NetConn = PC->GetNetConnection())
+		{
+			if (NetConn->PlayerId.IsValid() && !NetConn->PlayerId.ToString().IsEmpty())
+			{
+				return FString::Printf(TEXT("NetId_%s"), *NetConn->PlayerId.ToString());
+			}
+		}
+
+		// 3. Jeton de session authentifie stocke sur le PlayerController MEG
+		if (const AMEG_ReclamationPlayerController* MegPC = Cast<AMEG_ReclamationPlayerController>(PC))
+		{
+			if (!MegPC->GetPersistentPlayerId().IsEmpty())
+			{
+				return FString::Printf(TEXT("AuthSession_%s"), *MegPC->GetPersistentPlayerId());
+			}
+		}
+	}
+
+	// 4. Mappage explicite enregistre (mock de test ou service d'authentification dedie)
+	if (const FString* RegisteredId = AuthenticatedControllerIds.Find(Controller))
+	{
+		if (!RegisteredId->IsEmpty())
+		{
+			return *RegisteredId;
+		}
+	}
+
+	// Rejet ferme : interdiction formelle de s'appuyer sur PlayerState.GetPlayerId()
+	// (compteur de session volatil) ou PlayerName (pseudo non unique, vulnérable aux homonymes).
+	return FString();
+}
+
+bool ULiminalSessionManager::IsStasisExpired(const FString& PlayerUniqueId) const
+{
+	if (const FPlayerStasisRecord* Record = ActiveStasisRecords.Find(PlayerUniqueId))
+	{
+		const double Elapsed = FPlatformTime::Seconds() - Record->DisconnectTimestamp;
+		return (StasisExpirationSeconds > 0.0f && Elapsed >= static_cast<double>(StasisExpirationSeconds));
+	}
+	return false;
+}
+
+void ULiminalSessionManager::HandleStasisExpiration(const FPlayerStasisRecord& Record)
+{
+	if (AScavengerCharacter* StasisPawn = Record.StasisPawn.Get())
+	{
+		if (!StasisPawn->IsDead())
+		{
+			// Delai de stase expire sans retour de l'agent :
+			// Sortie de stase, depot physique du butin pour l'escouade et declaration de deces.
+			StasisPawn->ExitStasis();
+			StasisPawn->DropCarriedLootOnGround();
+			StasisPawn->Die(nullptr);
+		}
+	}
 }
 
 bool ULiminalSessionManager::RegisterPlayerDisconnect(AController* ExitingController)
@@ -47,26 +119,29 @@ bool ULiminalSessionManager::RegisterPlayerDisconnect(AController* ExitingContro
 		return false;
 	}
 
-	const FString PlayerId = GetUniquePlayerIdFromController(ExitingController);
+	const FString PlayerId = GetAuthenticatedPlayerId(ExitingController);
 	if (PlayerId.IsEmpty())
 	{
 		return false;
 	}
 
 	AScavengerCharacter* Scavenger = Cast<AScavengerCharacter>(ExitingController->GetPawn());
-	if (!Scavenger)
+	if (!Scavenger || Scavenger->IsDead())
 	{
 		return false;
 	}
 
-	Scavenger->DropCarriedLootOnGround();
+	// La stase gele l'agent dans le monde sans ejecter ses ressources au sol.
+	// Ejecter les ressources lors de la mise en stase creerait une faille de duplication majeure.
+	Scavenger->EnterStasis();
 
 	FPlayerStasisRecord Record;
 	Record.PlayerUniqueId = PlayerId;
 	Record.PlayerName = ExitingController->PlayerState ? ExitingController->PlayerState->GetPlayerName() : TEXT("M.E.G. Operative");
-	Record.Health = Scavenger->GetHealthPercent() * 100.0f;
-	Record.Sanity = Scavenger->GetSanityPercent() * 100.0f;
+	Record.Health = Scavenger->GetCurrentHealth();
+	Record.Sanity = Scavenger->GetCurrentSanity();
 	Record.CarriedCredits = Scavenger->GetCarriedCredits();
+	Record.CarriedWeightKg = Scavenger->GetCurrentInventoryWeightKg();
 	Record.SavedLocation = Scavenger->GetActorLocation();
 	Record.SavedRotation = Scavenger->GetActorRotation();
 	Record.CarriedTags = Scavenger->Tags;
@@ -74,9 +149,6 @@ bool ULiminalSessionManager::RegisterPlayerDisconnect(AController* ExitingContro
 	Record.StasisPawn = Scavenger;
 
 	ActiveStasisRecords.Add(PlayerId, Record);
-
-	// Congeler le mouvement en attendant reconnexion ou extraction
-	Scavenger->SetActorEnableCollision(true);
 
 	OnPlayerEnteredStasis.Broadcast(PlayerId, Record.SavedLocation);
 	return true;
@@ -89,7 +161,7 @@ bool ULiminalSessionManager::TryRestorePlayer(AController* JoiningController)
 		return false;
 	}
 
-	const FString PlayerId = GetUniquePlayerIdFromController(JoiningController);
+	const FString PlayerId = GetAuthenticatedPlayerId(JoiningController);
 	if (PlayerId.IsEmpty() || !ActiveStasisRecords.Contains(PlayerId))
 	{
 		return false;
@@ -97,26 +169,47 @@ bool ULiminalSessionManager::TryRestorePlayer(AController* JoiningController)
 
 	const FPlayerStasisRecord Record = ActiveStasisRecords[PlayerId];
 
-	AScavengerCharacter* Scavenger = Cast<AScavengerCharacter>(JoiningController->GetPawn());
-	if (!Scavenger)
+	// Verifier si le delai de reconnexion en stase a expire
+	const double Elapsed = FPlatformTime::Seconds() - Record.DisconnectTimestamp;
+	if (StasisExpirationSeconds > 0.0f && Elapsed >= static_cast<double>(StasisExpirationSeconds))
 	{
+		HandleStasisExpiration(Record);
+		ActiveStasisRecords.Remove(PlayerId);
 		return false;
 	}
 
-	// Restaurer la position de jeu
-	Scavenger->SetActorLocationAndRotation(Record.SavedLocation, Record.SavedRotation, false, nullptr, ETeleportType::TeleportPhysics);
+	AScavengerCharacter* StasisPawn = Record.StasisPawn.Get();
+	if (!StasisPawn || StasisPawn->IsDead())
+	{
+		// Corps detruit ou elimine pendant la stase : reprise impossible
+		ActiveStasisRecords.Remove(PlayerId);
+		return false;
+	}
 
-	// Restaurer les credits et la sante en valeur absolue
-	Scavenger->SetCarriedCredits(Record.CarriedCredits);
-	Scavenger->AuthSetHealthAndSanity(Record.Health, Record.Sanity);
+	// Reprise de possession du pawn en stase : detruire le pawn temporaire genere au login si distinct
+	APawn* CurrentPawn = JoiningController->GetPawn();
+	if (CurrentPawn && CurrentPawn != StasisPawn)
+	{
+		JoiningController->UnPossess();
+		CurrentPawn->Destroy();
+	}
+
+	JoiningController->Possess(StasisPawn);
+
+	// Sortie de stase et retablissement absolu sans duplication
+	StasisPawn->ExitStasis();
+	StasisPawn->SetActorLocationAndRotation(Record.SavedLocation, Record.SavedRotation, false, nullptr, ETeleportType::TeleportPhysics);
+	StasisPawn->AuthSetHealthAndSanity(Record.Health, Record.Sanity);
+	StasisPawn->SetCarriedCredits(Record.CarriedCredits);
+	StasisPawn->AuthSetInventoryWeight(Record.CarriedWeightKg);
 
 	for (const FName& Tag : Record.CarriedTags)
 	{
-		Scavenger->Tags.AddUnique(Tag);
+		StasisPawn->Tags.AddUnique(Tag);
 	}
 
 	ActiveStasisRecords.Remove(PlayerId);
-	OnPlayerRestoredFromStasis.Broadcast(PlayerId, Scavenger);
+	OnPlayerRestoredFromStasis.Broadcast(PlayerId, StasisPawn);
 
 	return true;
 }

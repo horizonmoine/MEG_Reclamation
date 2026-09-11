@@ -327,6 +327,7 @@ void AScavengerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME_CONDITION(AScavengerCharacter, CarriedCredits, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AScavengerCharacter, bIsSprinting, COND_OwnerOnly);
 	DOREPLIFETIME(AScavengerCharacter, bIsInfectedPartygoer);
+	DOREPLIFETIME(AScavengerCharacter, bIsInStasis);
 }
 
 void AScavengerCharacter::NotifyControllerChanged()
@@ -678,6 +679,65 @@ void AScavengerCharacter::AuthSetHealthAndSanity(float AbsoluteHealth, float Abs
 		OnRep_CurrentHealth();
 		OnRep_CurrentSanity();
 		ClientOnSanityRestored(CurrentSanity / MaxSanity);
+	}
+}
+
+void AScavengerCharacter::AuthSetInventoryWeight(float NewWeightKg)
+{
+	if (HasAuthority())
+	{
+		CurrentInventoryWeightKg = FMath::Clamp(NewWeightKg, 0.0f, MaxCarryWeightKg);
+		OnRep_CurrentInventoryWeightKg();
+	}
+}
+
+void AScavengerCharacter::EnterStasis()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	bIsInStasis = true;
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->DisableMovement();
+		MoveComp->StopMovementImmediately();
+	}
+	OnRep_IsInStasis();
+}
+
+void AScavengerCharacter::ExitStasis()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	bIsInStasis = false;
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->SetMovementMode(MOVE_Walking);
+	}
+	OnRep_IsInStasis();
+}
+
+void AScavengerCharacter::OnRep_IsInStasis()
+{
+	if (bIsInStasis)
+	{
+		if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+		{
+			MoveComp->DisableMovement();
+			MoveComp->StopMovementImmediately();
+		}
+	}
+	else
+	{
+		if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+		{
+			MoveComp->SetMovementMode(MOVE_Walking);
+		}
 	}
 }
 
@@ -1198,6 +1258,29 @@ void AScavengerCharacter::ServerRestoreSanity(float Amount)
 float AScavengerCharacter::GetHealthPercent() const
 {
 	return MaxHealth > 0.0f ? FMath::Clamp(CurrentHealth / MaxHealth, 0.0f, 1.0f) : 0.0f;
+}
+
+bool AScavengerCharacter::ShouldTakeDamage(float Damage, struct FDamageEvent const& DamageEvent,
+	AController* EventInstigator, AActor* DamageCauser) const
+{
+	if ((GetLocalRole() < ROLE_Authority) || !CanBeDamaged() || Damage <= 0.0f)
+	{
+		return false;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return false;
+	}
+
+	// In non-transient game worlds where a GameInstance is present, require AuthGameMode
+	if (!World->GetAuthGameMode() && World->GetGameInstance() != nullptr)
+	{
+		return false;
+	}
+
+	return true;
 }
 
 float AScavengerCharacter::TakeDamage(float Damage, struct FDamageEvent const& DamageEvent,
@@ -2210,4 +2293,126 @@ bool AScavengerCharacter::ServerSetSprinting_Validate(bool bNewSprinting)
 bool AScavengerCharacter::ServerUseTool_Validate()
 {
 	return true;
+}
+
+bool AScavengerCharacter::ServerTerminalPurchaseItem_Validate(ALiminalTerminalActor* Terminal, FName ItemId)
+{
+	return Terminal != nullptr && !ItemId.IsNone();
+}
+
+void AScavengerCharacter::ServerTerminalPurchaseItem_Implementation(ALiminalTerminalActor* Terminal, FName ItemId)
+{
+	if (!HasAuthority() || !Terminal || bIsDead || bIsDowned || bIsHypnotized)
+	{
+		return;
+	}
+
+	const float MaxDistSq = FMath::Square(450.0f);
+	if (FVector::DistSquared(GetActorLocation(), Terminal->GetActorLocation()) > MaxDistSq)
+	{
+		return;
+	}
+
+	FVector EyeLoc;
+	FRotator EyeRot;
+	GetActorEyesViewPoint(EyeLoc, EyeRot);
+
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(TerminalPurchaseLOS), false, this);
+	for (const TObjectPtr<ABaseTool>& Tool : OwnedTools)
+	{
+		if (Tool) Params.AddIgnoredActor(Tool);
+	}
+	if (UWorld* World = GetWorld())
+	{
+		const bool bBlocked = World->LineTraceSingleByChannel(Hit, EyeLoc, Terminal->GetActorLocation(), ECC_Visibility, Params);
+		if (bBlocked && Hit.GetActor() != Terminal)
+		{
+			return;
+		}
+	}
+
+	Terminal->PurchaseStoreItem(ItemId, this);
+}
+
+bool AScavengerCharacter::ServerTerminalSelectBiome_Validate(ALiminalTerminalActor* Terminal, ELevelBiome Biome)
+{
+	return Terminal != nullptr;
+}
+
+void AScavengerCharacter::ServerTerminalSelectBiome_Implementation(ALiminalTerminalActor* Terminal, ELevelBiome Biome)
+{
+	if (!HasAuthority() || !Terminal || bIsDead || bIsDowned || bIsHypnotized)
+	{
+		return;
+	}
+
+	const float MaxDistSq = FMath::Square(450.0f);
+	if (FVector::DistSquared(GetActorLocation(), Terminal->GetActorLocation()) > MaxDistSq)
+	{
+		return;
+	}
+
+	FVector EyeLoc;
+	FRotator EyeRot;
+	GetActorEyesViewPoint(EyeLoc, EyeRot);
+
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(TerminalBiomeLOS), false, this);
+	for (const TObjectPtr<ABaseTool>& Tool : OwnedTools)
+	{
+		if (Tool) Params.AddIgnoredActor(Tool);
+	}
+	if (UWorld* World = GetWorld())
+	{
+		const bool bBlocked = World->LineTraceSingleByChannel(Hit, EyeLoc, Terminal->GetActorLocation(), ECC_Visibility, Params);
+		if (bBlocked && Hit.GetActor() != Terminal)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[TerminalLOS] Blocked by: %s (HitActor: %s, Terminal: %s)"),
+				*GetNameSafe(Hit.GetComponent()), *GetNameSafe(Hit.GetActor()), *GetNameSafe(Terminal));
+			return;
+		}
+	}
+
+	Terminal->SelectBiome(Biome);
+}
+
+bool AScavengerCharacter::ServerTerminalLaunchIncursion_Validate(ALiminalTerminalActor* Terminal)
+{
+	return Terminal != nullptr;
+}
+
+void AScavengerCharacter::ServerTerminalLaunchIncursion_Implementation(ALiminalTerminalActor* Terminal)
+{
+	if (!HasAuthority() || !Terminal || bIsDead || bIsDowned || bIsHypnotized)
+	{
+		return;
+	}
+
+	const float MaxDistSq = FMath::Square(450.0f);
+	if (FVector::DistSquared(GetActorLocation(), Terminal->GetActorLocation()) > MaxDistSq)
+	{
+		return;
+	}
+
+	FVector EyeLoc;
+	FRotator EyeRot;
+	GetActorEyesViewPoint(EyeLoc, EyeRot);
+
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(TerminalLaunchLOS), false, this);
+	for (const TObjectPtr<ABaseTool>& Tool : OwnedTools)
+	{
+		if (Tool) Params.AddIgnoredActor(Tool);
+	}
+	if (UWorld* World = GetWorld())
+	{
+		const bool bBlocked = World->LineTraceSingleByChannel(Hit, EyeLoc, Terminal->GetActorLocation(), ECC_Visibility, Params);
+		if (bBlocked && Hit.GetActor() != Terminal)
+		{
+			return;
+		}
+	}
+
+	Terminal->LaunchIncursion();
 }

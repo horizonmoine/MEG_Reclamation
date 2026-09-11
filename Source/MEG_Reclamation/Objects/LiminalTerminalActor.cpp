@@ -164,7 +164,7 @@ void ALiminalTerminalActor::Interact(AScavengerCharacter* InteractingPlayer)
 	}
 }
 
-void ALiminalTerminalActor::ServerPurchaseStoreItem_Implementation(FName ItemId, AScavengerCharacter* Buyer)
+void ALiminalTerminalActor::PurchaseStoreItem(FName ItemId, AScavengerCharacter* Buyer)
 {
 	if (!HasAuthority() || !Buyer)
 	{
@@ -224,7 +224,7 @@ void ALiminalTerminalActor::ServerPurchaseStoreItem_Implementation(FName ItemId,
 	}
 }
 
-void ALiminalTerminalActor::ServerSelectBiome_Implementation(ELevelBiome Biome)
+void ALiminalTerminalActor::SelectBiome(ELevelBiome Biome)
 {
 	if (!HasAuthority())
 	{
@@ -260,7 +260,7 @@ void ALiminalTerminalActor::ServerSelectBiome_Implementation(ELevelBiome Biome)
 	}
 }
 
-void ALiminalTerminalActor::ServerLaunchIncursion_Implementation()
+void ALiminalTerminalActor::LaunchIncursion()
 {
 	if (!HasAuthority())
 	{

@@ -24,7 +24,16 @@ public:
 	/** Constructor */
 	AMEG_ReclamationPlayerController();
 
+	UFUNCTION(BlueprintCallable, Category = "Network|Identity")
+	void SetPersistentPlayerId(const FString& InId) { PersistentPlayerId = InId; }
+
+	UFUNCTION(BlueprintPure, Category = "Network|Identity")
+	const FString& GetPersistentPlayerId() const { return PersistentPlayerId; }
+
 protected:
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Network|Identity")
+	FString PersistentPlayerId;
 
 	/** Input Mapping Contexts */
 	UPROPERTY(EditAnywhere, Category="Input|Input Mappings")
