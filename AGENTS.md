@@ -44,10 +44,10 @@ Ce document définit les rôles, directives et spécialisations des agents auton
   - Matériaux PBR standardisés : Albedo (BaseColor), Roughness, Metallic, Normal (DirectX Y-inverted si nécessaire), Emissive.
 
 ### 6. `qa_release_sentinel`
-- **Domaine** : Tests d'automatisation continus, audit d'intégrité (31/31 contrôles), certification de packaging Shipping sans crash.
+- **Domaine** : Tests d'automatisation continus, audit d'intégrité, certification de packaging Shipping sans crash.
 - **Règles strictes** :
-  - Maintien obligatoire de 100% de réussite sur les 30 tests natifs (`Run_Automation_Tests.ps1`).
-  - Validation des 31 contrôles dans `Run_Auto_Check.ps1`.
+  - Maintien de la réussite sur les tests natifs (`Run_Automation_Tests.ps1`), en se référant à `docs/SCOPE_ACTUEL.md` comme source de vérité de l'état courant.
+  - Validation des contrôles dans `Run_Auto_Check.ps1`, en se référant à `docs/SCOPE_ACTUEL.md` comme source de vérité de l'état courant.
   - Vérification du lancement autonome sans console ni fenêtre de débogage pour `Builds/Windows/MEG_Reclamation.exe`.
 
 ---
