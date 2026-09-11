@@ -43,7 +43,7 @@ public:
 	virtual void Tick(float DeltaSeconds) override;
 
 	UFUNCTION(BlueprintPure, Category = "Mission")
-	float GetRealityCollapseRemainingSeconds() const { return RealityCollapseTimer; }
+	float GetRealityCollapseRemainingSeconds() const;
 
 	UFUNCTION(BlueprintPure, Category = "Mission")
 	float GetTotalMissionDurationSeconds() const { return TotalMissionDuration; }
@@ -72,9 +72,6 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mission", meta = (ClampMin = "60.0"))
 	float TotalMissionDuration = 480.0f;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mission")
-	float RealityCollapseTimer = 480.0f;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mission|Events")
 	float BlackoutTimer = 0.0f;
 
@@ -82,6 +79,9 @@ protected:
 
 	float StateTransitionTimer = 0.0f;
 	bool bTransitionPending = false;
+
+	bool bCollapseWarning60Sent = false;
+	bool bCollapseWarning15Sent = false;
 
 private:
 	void CheckGameOverCondition();

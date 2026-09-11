@@ -9,6 +9,7 @@
 #include "Tools/BaseTool.h"
 #include "Data/LiminalGameInstance.h"
 #include "GameModes/LiminalGameMode.h"
+#include "GameModes/LiminalGameState.h"
 #include "Objects/LiminalAirlockActor.h"
 #include "Objects/LiminalTerminalActor.h"
 #include "Objects/LiminalKeypadActor.h"
@@ -447,7 +448,8 @@ void ALiminalScavengerHUD::DrawMissionStatus(AScavengerCharacter* Scavenger, flo
 		MissionObj.EnableShadow(FLinearColor::Black);
 		Canvas->DrawItem(MissionObj);
 
-		const float Remaining = GM->GetRealityCollapseRemainingSeconds();
+		const ALiminalGameState* GS = GetWorld() ? GetWorld()->GetGameState<ALiminalGameState>() : nullptr;
+		const float Remaining = GS ? GS->GetCollapseTimeRemaining() : (GM ? GM->GetRealityCollapseRemainingSeconds() : 0.0f);
 		const int32 Mins = FMath::FloorToInt(Remaining / 60.0f);
 		const int32 Secs = FMath::FloorToInt(FMath::Fmod(Remaining, 60.0f));
 

@@ -20,7 +20,9 @@ public class MEG_Reclamation : ModuleRules
 			"StateTreeModule",
 			"GameplayStateTreeModule",
 			"UMG",
-			"Slate"
+			"Slate",
+			// FFastArraySerializer / FLifetimeProperty (inventaire Tetris replique, mission 03)
+			"NetCore"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "SlateCore" });

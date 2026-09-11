@@ -17,6 +17,7 @@
 #include "Audio/LiminalAudioSubsystem.h"
 
 #include "GameModes/LiminalGameState.h"
+#include "Player/LiminalPlayerState.h"
 
 bool ALiminalGameMode::IsBlackoutActive() const
 {
@@ -27,6 +28,15 @@ bool ALiminalGameMode::IsBlackoutActive() const
 	return false;
 }
 
+float ALiminalGameMode::GetRealityCollapseRemainingSeconds() const
+{
+	if (const ALiminalGameState* GS = GetGameState<ALiminalGameState>())
+	{
+		return GS->GetCollapseTimeRemaining();
+	}
+	return TotalMissionDuration;
+}
+
 ALiminalGameMode::ALiminalGameMode()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -34,6 +44,7 @@ ALiminalGameMode::ALiminalGameMode()
 	SpectatorPawnClass = ALiminalSpectatorPawn::StaticClass();
 	HUDClass = ALiminalScavengerHUD::StaticClass();
 	GameStateClass = ALiminalGameState::StaticClass();
+	PlayerStateClass = ALiminalPlayerState::StaticClass();
 }
 
 void ALiminalGameMode::BeginPlay()
@@ -42,13 +53,23 @@ void ALiminalGameMode::BeginPlay()
 
 	MatchState = EExtractionMatchState::InMission;
 	UsedPlayerStarts.Empty();
-	RealityCollapseTimer = TotalMissionDuration;
 	StateTransitionTimer = 0.0f;
 	bTransitionPending = false;
+	bCollapseWarning60Sent = false;
+	bCollapseWarning15Sent = false;
 
 	UWorld* World = GetWorld();
 	if (World && HasAuthority())
 	{
+		// Seed unique partagee : generateur serveur et clients late-join (via GameState).
+		const int32 MissionSeed = FMath::Rand();
+		if (ALiminalGameState* GS = GetGameState<ALiminalGameState>())
+		{
+			GS->AuthSetMissionSeed(MissionSeed);
+			GS->AuthSetMissionPhase(EMissionPhase::Incursion);
+			GS->AuthStartCollapseTimer(TotalMissionDuration);
+		}
+
 		bool bHasGenerator = false;
 		for (TActorIterator<ALiminalLevelGenerator> It(World); It; ++It)
 		{
@@ -64,13 +85,14 @@ void ALiminalGameMode::BeginPlay()
 				ALiminalLevelGenerator::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, Params);
 			if (Gen)
 			{
+				Gen->Seed = MissionSeed;
 				if (ULiminalGameInstance* GI = Cast<ULiminalGameInstance>(GetGameInstance()))
 				{
 					Gen->SetBiome(GI->GetSelectedBiome());
 				}
 				else
 				{
-					Gen->Generate(FMath::Rand());
+					Gen->Generate(MissionSeed);
 				}
 			}
 		}
@@ -177,6 +199,12 @@ void ALiminalGameMode::HandleSquadWiped()
 	StateTransitionTimer = 4.5f;
 	bTransitionPending = true;
 
+	if (ALiminalGameState* GS = GetGameState<ALiminalGameState>())
+	{
+		GS->AuthStopCollapseTimer();
+		GS->AuthSetMissionPhase(EMissionPhase::Failed);
+	}
+
 	if (GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Red,
@@ -199,6 +227,12 @@ void ALiminalGameMode::TriggerExtraction(AScavengerCharacter* Extractor)
 	MatchState = EExtractionMatchState::ExtractionPending;
 	StateTransitionTimer = 3.5f;
 	bTransitionPending = true;
+
+	if (ALiminalGameState* GS = GetGameState<ALiminalGameState>())
+	{
+		GS->AuthStopCollapseTimer();
+		GS->AuthSetMissionPhase(EMissionPhase::Extracted);
+	}
 
 	int32 TotalDeliveredCredits = 0;
 	if (UWorld* World = GetWorld())
@@ -256,53 +290,62 @@ void ALiminalGameMode::Tick(float DeltaSeconds)
 		}
 	}
 
-	// 1. Compte a rebours de stabilite dimensionnelle
+	// 1. Compte a rebours de stabilite dimensionnelle pilote par ALiminalGameState
 	if (MatchState == EExtractionMatchState::InMission)
 	{
-		const float PrevTimer = RealityCollapseTimer;
-		RealityCollapseTimer -= DeltaSeconds;
+		if (ALiminalGameState* GS = GetGameState<ALiminalGameState>())
+		{
+			const float RemainingSeconds = GS->GetCollapseTimeRemaining();
+			const float CollapseProgress = GS->GetCollapseProgress();
 
-		if (PrevTimer > 60.0f && RealityCollapseTimer <= 60.0f)
-		{
-			if (GEngine)
+			// Transition automatique vers Collapsing a 20% restant (stabilite critique)
+			if (GS->GetMissionPhase() == EMissionPhase::Incursion && CollapseProgress >= 0.8f)
 			{
-				GEngine->AddOnScreenDebugMessage(-1, 8.0f, FColor::Orange,
-					TEXT("[ALERTE M.E.G.] EFFONDREMENT DE REALITE DANS 60 SECONDES ! GAGNEZ LA ZONE D'EXTRACTION !"));
-			}
-		}
-		else if (PrevTimer > 15.0f && RealityCollapseTimer <= 15.0f)
-		{
-			if (GEngine)
-			{
-				GEngine->AddOnScreenDebugMessage(-1, 6.0f, FColor::Red,
-					TEXT("[ALERTE CRITIQUE] EFFONDREMENT IMMINENT DANS 15 SECONDES !"));
-			}
-		}
-		else if (RealityCollapseTimer <= 0.0f)
-		{
-			RealityCollapseTimer = 0.0f;
-
-			if (GEngine)
-			{
-				GEngine->AddOnScreenDebugMessage(-1, 8.0f, FColor::Red,
-					TEXT("[EFFONDREMENT TOTAL] La stabilite de l'etage est aneantie. La realite s'est disloquee."));
+				GS->AuthSetMissionPhase(EMissionPhase::Collapsing);
 			}
 
-			if (UWorld* World = GetWorld())
+			if (!bCollapseWarning60Sent && RemainingSeconds <= 60.0f && RemainingSeconds > 0.0f)
 			{
-				for (TActorIterator<AScavengerCharacter> It(World); It; ++It)
+				bCollapseWarning60Sent = true;
+				if (GEngine)
 				{
-					if (AScavengerCharacter* Scav = *It)
+					GEngine->AddOnScreenDebugMessage(-1, 8.0f, FColor::Orange,
+						TEXT("[ALERTE M.E.G.] EFFONDREMENT DE REALITE DANS 60 SECONDES ! GAGNEZ LA ZONE D'EXTRACTION !"));
+				}
+			}
+			else if (!bCollapseWarning15Sent && RemainingSeconds <= 15.0f && RemainingSeconds > 0.0f)
+			{
+				bCollapseWarning15Sent = true;
+				if (GEngine)
+				{
+					GEngine->AddOnScreenDebugMessage(-1, 6.0f, FColor::Red,
+						TEXT("[ALERTE CRITIQUE] EFFONDREMENT IMMINENT DANS 15 SECONDES !"));
+				}
+			}
+			else if (CollapseProgress >= 1.0f || RemainingSeconds <= 0.0f)
+			{
+				if (GEngine)
+				{
+					GEngine->AddOnScreenDebugMessage(-1, 8.0f, FColor::Red,
+						TEXT("[EFFONDREMENT TOTAL] La stabilite de l'etage est aneantie. La realite s'est disloquee."));
+				}
+
+				if (UWorld* World = GetWorld())
+				{
+					for (TActorIterator<AScavengerCharacter> It(World); It; ++It)
 					{
-						if (!Scav->IsDead())
+						if (AScavengerCharacter* Scav = *It)
 						{
-							Scav->Die(nullptr);
+							if (!Scav->IsDead())
+							{
+								Scav->Die(nullptr);
+							}
 						}
 					}
 				}
-			}
 
-			HandleSquadWiped();
+				HandleSquadWiped();
+			}
 		}
 
 		// 2. Gestion des pannes de courant "Lights Out" (style Escape the Backrooms)

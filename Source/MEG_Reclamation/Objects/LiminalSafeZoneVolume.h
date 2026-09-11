@@ -32,6 +32,7 @@ public:
 	void SetBoxExtent(const FVector& NewExtent);
 
 protected:
+	virtual void PostActorCreated() override;
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 

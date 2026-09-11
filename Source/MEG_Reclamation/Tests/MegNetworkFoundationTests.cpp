@@ -5,6 +5,7 @@
 #include "Engine/World.h"
 
 #include "Player/LiminalPlayerState.h"
+#include "GameModes/LiminalGameMode.h"
 #include "GameModes/LiminalGameState.h"
 #include "GameModes/LiminalZoneRulesSubsystem.h"
 #include "Objects/LiminalSafeZoneVolume.h"
@@ -127,6 +128,17 @@ bool FMegMissionPhaseTimerTest::RunTest(const FString& Parameters)
 	TestEqual("Temps restant initial 480 s", GS->GetCollapseTimeRemaining(), 480.0f, 0.1f);
 	TestEqual("Progression initiale 0", GS->GetCollapseProgress(), 0.0f, 0.001f);
 	TestTrue("Stabilite derivee : Normal", GS->GetStabilityPhase() == EStabilityPhase::Normal);
+
+	// Preuve que GameMode (serveur) et GameState (client/replit) derivent de la source unique GameState
+	ALiminalGameMode* GM = Scoped.World->SpawnActor<ALiminalGameMode>();
+	if (TestNotNull("GameMode spawne pour test source de verite", GM))
+	{
+		Scoped.World->SetGameState(GS);
+		const float ClientDisplayRemaining = GS->GetCollapseTimeRemaining();
+		const float ServerDecisionRemaining = GM->GetRealityCollapseRemainingSeconds();
+		TestEqual("Affichage client et decision serveur derivent strictement de la meme valeur", ClientDisplayRemaining, ServerDecisionRemaining);
+		TestEqual("Progression client = GameState", GS->GetCollapseProgress(), 1.0f - (GM->GetRealityCollapseRemainingSeconds() / GS->GetCollapseDurationSeconds()), 0.001f);
+	}
 
 	TestTrue("Incursion -> Collapsing", GS->AuthSetMissionPhase(EMissionPhase::Collapsing));
 	TestTrue("Collapsing -> Failed", GS->AuthSetMissionPhase(EMissionPhase::Failed));

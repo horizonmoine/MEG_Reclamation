@@ -1,6 +1,12 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "instructions": ["CLAUDE.md"],
+  "instructions": [
+    "CLAUDE.md",
+    "GEMINI.md",
+    "AGENTS.md",
+    ".agents/rules/ue5_cpp_network_rules.md",
+    "docs/architecture/NETWORK_ARCHITECTURE.md"
+  ],
   "mcp": {
     "unreal": {
       "type": "remote",

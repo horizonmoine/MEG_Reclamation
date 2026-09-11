@@ -17,6 +17,22 @@ ALiminalSafeZoneVolume::ALiminalSafeZoneVolume()
 	Bounds->SetHiddenInGame(true);
 }
 
+void ALiminalSafeZoneVolume::PostActorCreated()
+{
+	Super::PostActorCreated();
+
+	if (UWorld* World = GetWorld())
+	{
+		if (World->IsGameWorld())
+		{
+			if (ULiminalZoneRulesSubsystem* Rules = World->GetSubsystem<ULiminalZoneRulesSubsystem>())
+			{
+				Rules->RegisterSafeZone(this);
+			}
+		}
+	}
+}
+
 void ALiminalSafeZoneVolume::BeginPlay()
 {
 	Super::BeginPlay();
@@ -50,7 +66,7 @@ bool ALiminalSafeZoneVolume::ContainsLocation(const FVector& Location) const
 		return false;
 	}
 
-	return Bounds->Bounds.GetBox().IsInsideOrOn(Location);
+	return Bounds->CalcBounds(Bounds->GetComponentTransform()).GetBox().IsInsideOrOn(Location);
 }
 
 void ALiminalSafeZoneVolume::SetBoxExtent(const FVector& NewExtent)

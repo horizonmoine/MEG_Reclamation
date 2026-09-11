@@ -4,6 +4,17 @@ Ce document constitue le **System Prompt & Guide Opérationnel** pour tous les a
 
 ---
 
+## 0. Règles C++ & Réseau OBLIGATOIRES (lire en premier)
+
+Pour tout fichier sous `Source/`, applique intégralement :
+- `.agents/rules/ue5_cpp_network_rules.md` : nommage Epic, `TObjectPtr`, includes minimaux, modèle 100 % Server-Authoritative, format de livraison.
+- `docs/architecture/NETWORK_ARCHITECTURE.md` : matrice des responsabilités GameMode / GameState / PlayerState / Character / Subsystems.
+- `docs/missions/00_PROTOCOL.md` : ordre des missions (`01` -> `06`) et porte de qualité (lint `scripts/ci/lint_ue_network.py`, build 0 warning, `Run_Automation_Tests.ps1`, `Run_Auto_Check.ps1`).
+
+Rejet immédiat : float répliqué `*TimeRemaining`, Server RPC sur GameState/GameMode, pointeur brut `UPROPERTY`, `TArray<UObject*>`/`TMap` répliqués, pseudo-code ou `...` dans un fichier livré, arme joueur.
+
+---
+
 ## 1. Principes Communs aux MCP (Blender & Unreal Engine)
 
 1. **Un appel = une opération.** Ne jamais empiler plusieurs actions dans un seul appel d'outil. Une géométrie, un matériau, un déplacement, une modification de Blueprint à la fois. Les opérations complexes se décomposent en séquence, pas en un seul prompt fourre-tout.
