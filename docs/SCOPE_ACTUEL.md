@@ -14,6 +14,7 @@ Une boucle hub → Level 0 → fusible/loot → extraction → hub, jouable seul
 - Pause : vraie pause solo ; menu réseau sans arrêt du monde, avec indication explicite.
 - Scope : aucune nouvelle entité, banque payante ou migration destructive d'assets avant preuve de la boucle de base.
 - Nouvelle campagne : réinitialisation uniquement après confirmation explicite ; la progression des invités et la reconnexion restent à fiabiliser.
+- Hound : perception sonore réelle par stimuli localisés (distance avec atténuation, occlusion par portes/murs, intensité perçue, horodatage et mémoire bornée). Hystérésis de cible pour empêcher l'oscillation. Règle du regard (Manuel M.E.G. Entité 8) : fixer directement le Hound (< 4m, ligne de vue directe, cône de 45°) l'intimide et suspend sa charge ; briser le regard relance la poursuite. Rupture de poursuite bornée vers la dernière position connue, puis recherche locale bornée avant retour au calme. Les leurres sonores attirent le Hound à leur position exacte.
 
 ## Matrice de maturité au lancement des corrections
 

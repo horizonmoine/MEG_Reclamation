@@ -67,9 +67,10 @@ Toutes les entités dérivent de `ALiminalEntity` et sont pilotées par `ALimina
    - *Contre-mesures* : Éteindre immédiatement la lampe, maintenir un contact visuel immobile pour le figer, ou utiliser le Flash Strobe (`AFlashStrobeTool`) pour l'étourdir (3s).
 
 2. **Hound (`ALiminalEntity_Hound`)** :
-   - *Comportement* : Prédateur quadrupède aveugle doté d'une ouïe absolue, guidé par `BT_Hound` et `BB_Hound`.
-   - *Déclencheur* : Traque toute émission sonore dépassant le seuil de discrétion (pas de course, chutes de butin physique).
-   - *Contre-mesures* : Déplacement accroupi, largage d'un Leurre Audio (`AAudioDecoyTool`) pour dérouter sa trajectoire.
+   - *Comportement* : Prédateur quadrupède doté d'une audition directionnelle aiguë, guidé par `BT_Hound` et `BB_Hound`. Traque par perception acoustique localisée (distance, atténuation murale par cloisons et portes closes, intensité perçue et mémoire temporelle bornée).
+   - *Déclencheur* : Traque toute émission sonore dépassant le seuil de discrétion (pas de course, chutes de butin physique, émissions radio ou voix directe).
+   - *Règle du regard (Manuel M.E.G. Entité 8)* : À courte portée (< 4 m en ligne de vue dégagée), soutenir un regard direct et ininterrompu dans les yeux du Hound l'intimide temporairement et suspend sa charge. Détourner la tête ou fuir déclenche immédiatement la reprise de la charge.
+   - *Contre-mesures* : Déplacement accroupi, portes fermées pour étouffer le bruit, largage d'un Leurre Audio (`AAudioDecoyTool`) vers lequel il converge immédiatement, maintien du contact visuel pour se replier pas à pas.
 
 3. **Clump (`ALiminalEntity_Clump`)** :
    - *Comportement* : Amas de membres organiques embusqué au sol dans les angles morts et couloirs étroits.
