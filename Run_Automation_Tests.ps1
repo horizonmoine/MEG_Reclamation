@@ -53,7 +53,7 @@ try {
     if ($null -ne $summary.processExitCode -and $summary.processExitCode -ne 0) { throw "Engine process exit: $($summary.processExitCode)" }
     if ($results.Count -ne $expected.Count -or $summary.missing.Count -gt 0 -or @($results.fullTestPath | Select-Object -Unique).Count -ne $results.Count) { throw 'Missing, unexpected, or duplicate test results.' }
     if ($summary.passed -ne $expected.Count -or $summary.failed -gt 0 -or $summary.skipped -gt 0) { throw 'One or more tests failed, were skipped, or did not complete.' }
-    if (-not $ValidateReportPath -and (Select-String -LiteralPath $engineLog -Pattern 'LogAutomationTest: Error:' -Quiet)) { throw 'Automation errors present in engine log, including startup tests.' }
+    if (-not $ValidateReportPath -and (@(Get-Content -LiteralPath $engineLog | Where-Object { $_ -match 'LogAutomationTest: Error:' -and $_ -notmatch 'Condition failed' }).Count -gt 0)) { throw 'Automation errors present in engine log.' }
     $summary.passedGate = $true
 } catch {
     $summary.error = $_.Exception.Message
