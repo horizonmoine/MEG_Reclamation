@@ -1,0 +1,8 @@
+#!/bin/sh
+echo "Running network lint..."
+"F:/UE_5.8/Engine/Binaries/ThirdParty/Python3/Win64/python.exe" scripts/ci/lint_ue_network.py Source
+if [ $? -ne 0 ]; then
+  echo "Lint reseau echoue. Commit bloque."
+  exit 1
+fi
+echo "Lint OK."
