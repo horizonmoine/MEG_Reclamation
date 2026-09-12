@@ -4,6 +4,7 @@
 #include "Components/PostProcessComponent.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "GameModes/LiminalZoneRulesSubsystem.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundBase.h"
@@ -157,6 +158,11 @@ void ULiminalSanityPostProcessComponent::UpdateHallucinationSpawning(float Delta
 		return;
 	}
 
+	if (!ULiminalZoneRulesSubsystem::IsSanityPressureActive(GetOwner()))
+	{
+		return;
+	}
+
 	HallucinationTimer += DeltaTime;
 	if (HallucinationTimer >= NextHallucinationInterval)
 	{
@@ -180,6 +186,11 @@ void ULiminalSanityPostProcessComponent::ForceSpawnHallucination(EHallucinationT
 	AActor* Owner = GetOwner();
 	UWorld* World = GetWorld();
 	if (!Owner || !World)
+	{
+		return;
+	}
+
+	if (!ULiminalZoneRulesSubsystem::IsSanityPressureActive(Owner))
 	{
 		return;
 	}

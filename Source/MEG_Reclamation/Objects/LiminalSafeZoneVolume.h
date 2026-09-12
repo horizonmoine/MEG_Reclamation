@@ -23,7 +23,16 @@ public:
 	bool ContainsLocation(const FVector& Location) const;
 
 	UFUNCTION(BlueprintPure, Category = "SafeZone")
+	bool IsActive() const { return bIsActive; }
+
+	UFUNCTION(BlueprintCallable, Category = "SafeZone")
+	void SetActive(bool bActive);
+
+	UFUNCTION(BlueprintPure, Category = "SafeZone")
 	float GetSanityRestorePerSecond() const { return SanityRestorePerSecond; }
+
+	UFUNCTION(BlueprintCallable, Category = "SafeZone")
+	void SetSanityRestorePerSecond(float Rate) { SanityRestorePerSecond = Rate; }
 
 	UFUNCTION(BlueprintPure, Category = "SafeZone")
 	bool BlocksEntitySpawns() const { return bBlocksEntitySpawns; }
@@ -45,4 +54,7 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SafeZone")
 	bool bBlocksEntitySpawns = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SafeZone")
+	bool bIsActive = true;
 };

@@ -17,6 +17,7 @@
 #include "Perception/AISense_Hearing.h"
 #include "Player/ScavengerCharacter.h"
 #include "Objects/LootActor.h"
+#include "GameModes/LiminalZoneRulesSubsystem.h"
 #include "UObject/ConstructorHelpers.h"
 
 ALiminalEntity::ALiminalEntity()
@@ -89,6 +90,23 @@ UBehaviorTree* ALiminalEntity::GetInitialBehaviorTree() const
 void ALiminalEntity::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (HasAuthority())
+	{
+		if (UWorld* World = GetWorld())
+		{
+			if (ULiminalZoneRulesSubsystem* Rules = World->GetSubsystem<ULiminalZoneRulesSubsystem>())
+			{
+				if (!Rules->IsEntitySpawnAllowedAt(GetActorLocation()))
+				{
+					UE_LOG(LogTemp, Warning, TEXT("[LiminalEntity] Spawn refuse en zone protegee / non hostile : %s a %s. Destruction immediate."),
+						*GetName(), *GetActorLocation().ToString());
+					Destroy();
+					return;
+				}
+			}
+		}
+	}
 	
 	if (DefaultBodyMesh.IsPending())
 	{

@@ -3,6 +3,7 @@
 #include "AI/LiminalEntity.h"
 #include "EngineUtils.h"
 #include "GameFramework/GameModeBase.h"
+#include "GameModes/LiminalZoneRulesSubsystem.h"
 #include "Player/ScavengerCharacter.h"
 
 ULiminalEntityDirector::ULiminalEntityDirector()
@@ -281,4 +282,11 @@ void ULiminalEntityDirector::NotifyPlayerDied()
 void ULiminalEntityDirector::NotifyPlayerRevived()
 {
 	UE_LOG(LogTemp, Log, TEXT("EntityDirector: Player revived."));
+}
+
+bool ULiminalEntityDirector::CanSpawnEntityAt(const FVector& Location) const
+{
+	const UWorld* World = GetWorld();
+	const ULiminalZoneRulesSubsystem* Rules = World ? World->GetSubsystem<ULiminalZoneRulesSubsystem>() : nullptr;
+	return Rules ? Rules->IsEntitySpawnAllowedAt(Location) : true;
 }

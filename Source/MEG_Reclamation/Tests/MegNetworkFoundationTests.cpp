@@ -9,6 +9,12 @@
 #include "GameModes/LiminalGameState.h"
 #include "GameModes/LiminalZoneRulesSubsystem.h"
 #include "Objects/LiminalSafeZoneVolume.h"
+#include "Objects/LiminalAirlockActor.h"
+#include "Objects/LiminalTerminalActor.h"
+#include "Player/ScavengerCharacter.h"
+#include "Sanity/LiminalHallucinationActor.h"
+#include "Sanity/LiminalSanityPostProcessComponent.h"
+#include "EngineUtils.h"
 #include "AI/LiminalStimulusSubsystem.h"
 #include "Inventory/LiminalInventoryTypes.h"
 
@@ -327,6 +333,141 @@ bool FMegZoneRulesTest::RunTest(const FString& Parameters)
 	Zone->Destroy();
 	Rules->UnregisterSafeZone(Zone);
 	TestEqual("Zone desenregistree", Rules->GetSafeZoneCount(), 0);
+
+	return true;
+}
+
+// ---------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMegHubZoneRulesCompletionTest, "Project.Functional Tests.MEG.Network.HubZoneRulesCompletion",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FMegHubZoneRulesCompletionTest::RunTest(const FString& Parameters)
+{
+	MegNetTestUtils::FScopedTestWorld Scoped;
+	if (!TestNotNull("Monde de test", Scoped.World))
+	{
+		return false;
+	}
+
+	ULiminalZoneRulesSubsystem* Rules = Scoped.World->GetSubsystem<ULiminalZoneRulesSubsystem>();
+	if (!TestNotNull("Subsystem regles de zone", Rules))
+	{
+		return false;
+	}
+
+	ALiminalGameState* GS = Scoped.World->SpawnActor<ALiminalGameState>();
+	if (!TestNotNull("GameState spawne", GS))
+	{
+		return false;
+	}
+	Scoped.World->SetGameState(GS);
+	GS->AuthSetMissionPhase(EMissionPhase::Hub);
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	AScavengerCharacter* Scavenger = Scoped.World->SpawnActor<AScavengerCharacter>(
+		AScavengerCharacter::StaticClass(), FVector(0.0f, 0.0f, 50.0f), FRotator::ZeroRotator, SpawnParams);
+	if (!TestNotNull("Scavenger spawne", Scavenger))
+	{
+		return false;
+	}
+
+	// 1. Drain de sanite a 0 en phase Hub
+	Scavenger->AuthDrainSanity(100.0f);
+	TestTrue("Sanite epuisee", Scavenger->GetCurrentSanity() <= 0.0f);
+
+	// Appel direct a SpawnHallucination : ne doit rien instancier
+	Scavenger->SpawnHallucination();
+
+	int32 HallucinationCount = 0;
+	for (TActorIterator<ALiminalHallucinationActor> It(Scoped.World); It; ++It)
+	{
+		HallucinationCount++;
+	}
+	TestEqual("Aucun ALiminalHallucinationActor en phase Hub", HallucinationCount, 0);
+
+	// Composant PostProcess hallucination en phase Hub : ne doit rien instancier
+	ULiminalSanityPostProcessComponent* SanityPP = Scavenger->FindComponentByClass<ULiminalSanityPostProcessComponent>();
+	if (SanityPP)
+	{
+		SanityPP->ForceSpawnHallucination(EHallucinationType::ShadowSilhouette);
+	}
+	HallucinationCount = 0;
+	for (TActorIterator<ALiminalHallucinationActor> It(Scoped.World); It; ++It)
+	{
+		HallucinationCount++;
+	}
+	TestEqual("ForceSpawnHallucination bloque en phase Hub", HallucinationCount, 0);
+
+	// 2. Transition en Incursion : autorise le spawn hors safe zone
+	GS->AuthSetMissionPhase(EMissionPhase::Incursion);
+	TestTrue("Phase Incursion : hostile", Rules->IsMissionHostile());
+
+	if (SanityPP)
+	{
+		SanityPP->ForceSpawnHallucination(EHallucinationType::ShadowSilhouette);
+	}
+	HallucinationCount = 0;
+	for (TActorIterator<ALiminalHallucinationActor> It(Scoped.World); It; ++It)
+	{
+		HallucinationCount++;
+	}
+	TestTrue("Hallucination spawnee en incursion", HallucinationCount >= 1);
+
+	// 3. Sas B.R.C. et volume enfant
+	ALiminalAirlockActor* Airlock = Scoped.World->SpawnActor<ALiminalAirlockActor>(
+		ALiminalAirlockActor::StaticClass(), FVector(2000.0f, 0.0f, 0.0f), FRotator::ZeroRotator, SpawnParams);
+	TestNotNull("Airlock spawne", Airlock);
+	if (Airlock)
+	{
+		TestNotNull("SafeZone enfant du sas instancie", Airlock->GetSafeZoneVolume());
+		TestFalse("Scavenger a (0,0) n'est pas dans le sas a (2000,0)", Airlock->IsActorInsideAirlock(Scavenger));
+
+		Scavenger->SetActorLocation(FVector(2000.0f, 0.0f, 0.0f));
+		TestTrue("Scavenger a (2000,0) est dans le sas", Airlock->IsActorInsideAirlock(Scavenger));
+
+		TestFalse("Sas non scelle initialement", Airlock->IsSealed());
+		if (Airlock->GetSafeZoneVolume())
+		{
+			TestTrue("SafeZone active quand non scelle", Airlock->GetSafeZoneVolume()->IsActive());
+		}
+
+		Airlock->SetSealed(true);
+		TestTrue("Sas scelle", Airlock->IsSealed());
+		if (Airlock->GetSafeZoneVolume())
+		{
+			TestFalse("SafeZone desactivee quand sas scelle", Airlock->GetSafeZoneVolume()->IsActive());
+		}
+		Airlock->SetSealed(false);
+	}
+
+	// 4. Terminal de mission et conditions de depart
+	ALiminalTerminalActor* Terminal = Scoped.World->SpawnActor<ALiminalTerminalActor>(
+		ALiminalTerminalActor::StaticClass(), FVector(100.0f, 0.0f, 0.0f), FRotator::ZeroRotator, SpawnParams);
+	TestNotNull("Terminal spawne", Terminal);
+
+	ALiminalPlayerState* PS = Scoped.World->SpawnActor<ALiminalPlayerState>();
+	TestNotNull("PlayerState spawne", PS);
+	if (PS)
+	{
+		GS->PlayerArray.Add(PS);
+		PS->AuthResetForNewRun();
+		PS->AuthSetReady(false);
+
+		// Non pret -> refus de lancement
+		Terminal->LaunchIncursion();
+
+		// Pret mais hors du sas -> refus de lancement
+		PS->AuthSetReady(true);
+		Scavenger->SetActorLocation(FVector(0.0f, 0.0f, 50.0f));
+		Terminal->LaunchIncursion();
+
+		// Pret et a l'interieur du sas -> valide
+		Scavenger->SetActorLocation(FVector(2000.0f, 0.0f, 0.0f));
+		Terminal->LaunchIncursion();
+	}
 
 	return true;
 }

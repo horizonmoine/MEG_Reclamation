@@ -21,6 +21,7 @@
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerStart.h"
+#include "GameModes/LiminalZoneRulesSubsystem.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Net/UnrealNetwork.h"
 #include "Objects/ExtractionZone.h"
@@ -1345,6 +1346,15 @@ void ALiminalLevelGenerator::SpawnHounds()
 	{
 		const int32 PickedIdx = SafeRoomIndices[HoundStream.RandRange(0, SafeRoomIndices.Num() - 1)];
 		const FProcRoom& Room = CurrentLayout.Rooms[PickedIdx];
+		const FVector SpawnLoc = CellToWorld(Room.CenterX, Room.CenterY, 100.0f);
+
+		if (ULiminalZoneRulesSubsystem* Rules = World->GetSubsystem<ULiminalZoneRulesSubsystem>())
+		{
+			if (!Rules->IsEntitySpawnAllowedAt(SpawnLoc))
+			{
+				continue;
+			}
+		}
 
 		FActorSpawnParameters Params;
 		Params.ObjectFlags |= RF_Transient;
@@ -1352,7 +1362,7 @@ void ALiminalLevelGenerator::SpawnHounds()
 			ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
 		APawn* Hound = World->SpawnActor<APawn>(HoundClass,
-			CellToWorld(Room.CenterX, Room.CenterY, 100.0f), FRotator(0.0f, HoundStream.FRandRange(0.0f, 360.0f), 0.0f), Params);
+			SpawnLoc, FRotator(0.0f, HoundStream.FRandRange(0.0f, 360.0f), 0.0f), Params);
 
 		if (Hound)
 		{
@@ -1408,13 +1418,22 @@ void ALiminalLevelGenerator::SpawnSmilers()
 	{
 		const int32 PickedIdx = SafeRoomIndices[SmilerStream.RandRange(0, SafeRoomIndices.Num() - 1)];
 		const FProcRoom& Room = CurrentLayout.Rooms[PickedIdx];
+		const FVector SpawnLoc = CellToWorld(Room.CenterX, Room.CenterY, 100.0f);
+
+		if (ULiminalZoneRulesSubsystem* Rules = World->GetSubsystem<ULiminalZoneRulesSubsystem>())
+		{
+			if (!Rules->IsEntitySpawnAllowedAt(SpawnLoc))
+			{
+				continue;
+			}
+		}
 
 		FActorSpawnParameters Params;
 		Params.ObjectFlags |= RF_Transient;
 		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
 		APawn* Smiler = World->SpawnActor<APawn>(SmilerClass,
-			CellToWorld(Room.CenterX, Room.CenterY, 100.0f), FRotator(0.0f, SmilerStream.FRandRange(0.0f, 360.0f), 0.0f), Params);
+			SpawnLoc, FRotator(0.0f, SmilerStream.FRandRange(0.0f, 360.0f), 0.0f), Params);
 
 		if (Smiler)
 		{
@@ -1470,13 +1489,22 @@ void ALiminalLevelGenerator::SpawnClumps()
 	{
 		const int32 PickedIdx = SafeRoomIndices[ClumpStream.RandRange(0, SafeRoomIndices.Num() - 1)];
 		const FProcRoom& Room = CurrentLayout.Rooms[PickedIdx];
+		const FVector SpawnLoc = CellToWorld(Room.OriginX + 1, Room.OriginY + 1, 60.0f);
+
+		if (ULiminalZoneRulesSubsystem* Rules = World->GetSubsystem<ULiminalZoneRulesSubsystem>())
+		{
+			if (!Rules->IsEntitySpawnAllowedAt(SpawnLoc))
+			{
+				continue;
+			}
+		}
 
 		FActorSpawnParameters Params;
 		Params.ObjectFlags |= RF_Transient;
 		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
 		APawn* Clump = World->SpawnActor<APawn>(ClumpClass,
-			CellToWorld(Room.OriginX + 1, Room.OriginY + 1, 60.0f), FRotator::ZeroRotator, Params);
+			SpawnLoc, FRotator::ZeroRotator, Params);
 
 		if (Clump)
 		{
@@ -1507,13 +1535,22 @@ void ALiminalLevelGenerator::SpawnWatchers()
 	{
 		const int32 RoomIndex = 1 + (WatcherStream.RandRange(0, CurrentLayout.Rooms.Num() - 2));
 		const FProcRoom& Room = CurrentLayout.Rooms[RoomIndex % CurrentLayout.Rooms.Num()];
+		const FVector SpawnLoc = CellToWorld(Room.CenterX, Room.CenterY, 60.0f);
+
+		if (ULiminalZoneRulesSubsystem* Rules = World->GetSubsystem<ULiminalZoneRulesSubsystem>())
+		{
+			if (!Rules->IsEntitySpawnAllowedAt(SpawnLoc))
+			{
+				continue;
+			}
+		}
 
 		FActorSpawnParameters Params;
 		Params.ObjectFlags |= RF_Transient;
 		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
 		APawn* Watcher = World->SpawnActor<APawn>(WatcherClass,
-			CellToWorld(Room.CenterX, Room.CenterY, 60.0f),
+			SpawnLoc,
 			FRotator(0.0f, WatcherStream.FRandRange(0.0f, 360.0f), 0.0f), Params);
 
 		if (Watcher)
@@ -1545,13 +1582,22 @@ void ALiminalLevelGenerator::SpawnWretches()
 	{
 		const int32 RoomIndex = 1 + (WretchStream.RandRange(0, CurrentLayout.Rooms.Num() - 2));
 		const FProcRoom& Room = CurrentLayout.Rooms[RoomIndex % CurrentLayout.Rooms.Num()];
+		const FVector SpawnLoc = CellToWorld(Room.CenterX, Room.CenterY, 60.0f);
+
+		if (ULiminalZoneRulesSubsystem* Rules = World->GetSubsystem<ULiminalZoneRulesSubsystem>())
+		{
+			if (!Rules->IsEntitySpawnAllowedAt(SpawnLoc))
+			{
+				continue;
+			}
+		}
 
 		FActorSpawnParameters Params;
 		Params.ObjectFlags |= RF_Transient;
 		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
 		APawn* Wretch = World->SpawnActor<APawn>(WretchClass,
-			CellToWorld(Room.CenterX, Room.CenterY, 60.0f),
+			SpawnLoc,
 			FRotator(0.0f, WretchStream.FRandRange(0.0f, 360.0f), 0.0f), Params);
 
 		if (Wretch)
@@ -1583,13 +1629,22 @@ void ALiminalLevelGenerator::SpawnDeathmoths()
 	{
 		const int32 RoomIndex = 1 + (DeathmothStream.RandRange(0, CurrentLayout.Rooms.Num() - 2));
 		const FProcRoom& Room = CurrentLayout.Rooms[RoomIndex % CurrentLayout.Rooms.Num()];
+		const FVector SpawnLoc = CellToWorld(Room.CenterX, Room.CenterY, 150.0f);
+
+		if (ULiminalZoneRulesSubsystem* Rules = World->GetSubsystem<ULiminalZoneRulesSubsystem>())
+		{
+			if (!Rules->IsEntitySpawnAllowedAt(SpawnLoc))
+			{
+				continue;
+			}
+		}
 
 		FActorSpawnParameters Params;
 		Params.ObjectFlags |= RF_Transient;
 		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
 		APawn* Deathmoth = World->SpawnActor<APawn>(DeathmothClass,
-			CellToWorld(Room.CenterX, Room.CenterY, 150.0f),
+			SpawnLoc,
 			FRotator(0.0f, DeathmothStream.FRandRange(0.0f, 360.0f), 0.0f), Params);
 
 		if (Deathmoth)
@@ -1621,13 +1676,22 @@ void ALiminalLevelGenerator::SpawnSkinwalkers()
 	{
 		const int32 RoomIndex = 1 + (Rnd.RandRange(0, CurrentLayout.Rooms.Num() - 2));
 		const FProcRoom& Room = CurrentLayout.Rooms[RoomIndex % CurrentLayout.Rooms.Num()];
+		const FVector SpawnLoc = CellToWorld(Room.CenterX, Room.CenterY, 90.0f);
+
+		if (ULiminalZoneRulesSubsystem* Rules = World->GetSubsystem<ULiminalZoneRulesSubsystem>())
+		{
+			if (!Rules->IsEntitySpawnAllowedAt(SpawnLoc))
+			{
+				continue;
+			}
+		}
 
 		FActorSpawnParameters Params;
 		Params.ObjectFlags |= RF_Transient;
 		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
 		APawn* Entity = World->SpawnActor<APawn>(SkinwalkerClass,
-			CellToWorld(Room.CenterX, Room.CenterY, 90.0f),
+			SpawnLoc,
 			FRotator(0.0f, Rnd.FRandRange(0.0f, 360.0f), 0.0f), Params);
 
 		if (Entity)
@@ -1659,13 +1723,22 @@ void ALiminalLevelGenerator::SpawnPartygoers()
 	{
 		const int32 RoomIndex = 1 + (Rnd.RandRange(0, CurrentLayout.Rooms.Num() - 2));
 		const FProcRoom& Room = CurrentLayout.Rooms[RoomIndex % CurrentLayout.Rooms.Num()];
+		const FVector SpawnLoc = CellToWorld(Room.CenterX, Room.CenterY, 90.0f);
+
+		if (ULiminalZoneRulesSubsystem* Rules = World->GetSubsystem<ULiminalZoneRulesSubsystem>())
+		{
+			if (!Rules->IsEntitySpawnAllowedAt(SpawnLoc))
+			{
+				continue;
+			}
+		}
 
 		FActorSpawnParameters Params;
 		Params.ObjectFlags |= RF_Transient;
 		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
 		APawn* Entity = World->SpawnActor<APawn>(PartygoerClass,
-			CellToWorld(Room.CenterX, Room.CenterY, 90.0f),
+			SpawnLoc,
 			FRotator(0.0f, Rnd.FRandRange(0.0f, 360.0f), 0.0f), Params);
 
 		if (Entity)
@@ -1697,13 +1770,22 @@ void ALiminalLevelGenerator::SpawnDullers()
 	{
 		const int32 RoomIndex = 1 + (Rnd.RandRange(0, CurrentLayout.Rooms.Num() - 2));
 		const FProcRoom& Room = CurrentLayout.Rooms[RoomIndex % CurrentLayout.Rooms.Num()];
+		const FVector SpawnLoc = CellToWorld(Room.CenterX, Room.CenterY, 90.0f);
+
+		if (ULiminalZoneRulesSubsystem* Rules = World->GetSubsystem<ULiminalZoneRulesSubsystem>())
+		{
+			if (!Rules->IsEntitySpawnAllowedAt(SpawnLoc))
+			{
+				continue;
+			}
+		}
 
 		FActorSpawnParameters Params;
 		Params.ObjectFlags |= RF_Transient;
 		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
 		APawn* Entity = World->SpawnActor<APawn>(DullerClass,
-			CellToWorld(Room.CenterX, Room.CenterY, 90.0f),
+			SpawnLoc,
 			FRotator(0.0f, Rnd.FRandRange(0.0f, 360.0f), 0.0f), Params);
 
 		if (Entity)
@@ -1735,13 +1817,22 @@ void ALiminalLevelGenerator::SpawnJerrys()
 	{
 		const int32 RoomIndex = 1 + (Rnd.RandRange(0, CurrentLayout.Rooms.Num() - 2));
 		const FProcRoom& Room = CurrentLayout.Rooms[RoomIndex % CurrentLayout.Rooms.Num()];
+		const FVector SpawnLoc = CellToWorld(Room.CenterX, Room.CenterY, 120.0f);
+
+		if (ULiminalZoneRulesSubsystem* Rules = World->GetSubsystem<ULiminalZoneRulesSubsystem>())
+		{
+			if (!Rules->IsEntitySpawnAllowedAt(SpawnLoc))
+			{
+				continue;
+			}
+		}
 
 		FActorSpawnParameters Params;
 		Params.ObjectFlags |= RF_Transient;
 		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
 		APawn* Entity = World->SpawnActor<APawn>(JerryClass,
-			CellToWorld(Room.CenterX, Room.CenterY, 120.0f),
+			SpawnLoc,
 			FRotator(0.0f, Rnd.FRandRange(0.0f, 360.0f), 0.0f), Params);
 
 		if (Entity)

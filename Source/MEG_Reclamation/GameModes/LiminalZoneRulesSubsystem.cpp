@@ -109,7 +109,7 @@ const ALiminalSafeZoneVolume* ULiminalZoneRulesSubsystem::FindSafeZoneContaining
 	for (const TWeakObjectPtr<ALiminalSafeZoneVolume>& Entry : SafeZones)
 	{
 		const ALiminalSafeZoneVolume* Zone = Entry.Get();
-		if (Zone && Zone->ContainsLocation(Location))
+		if (Zone && Zone->IsActive() && Zone->ContainsLocation(Location))
 		{
 			return Zone;
 		}

@@ -7,7 +7,11 @@
 #include "Crafting/LiminalCraftingComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/StaticMesh.h"
+#include "EngineUtils.h"
+#include "GameModes/LiminalGameState.h"
 #include "GameModes/LiminalLobbyGameMode.h"
+#include "Player/LiminalPlayerState.h"
+#include "Objects/LiminalAirlockActor.h"
 #include "Net/UnrealNetwork.h"
 #include "Player/ScavengerCharacter.h"
 #include "Tools/FlashStrobeTool.h"
@@ -215,12 +219,14 @@ void ALiminalTerminalActor::PurchaseStoreItem(FName ItemId, AScavengerCharacter*
 			}
 		}
 
+#if !UE_BUILD_SHIPPING
 		if (GEngine)
 		{
 			GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Green,
 				FString::Printf(TEXT("Achat confirme : %s (-%d cr). Solde restant : %d cr"),
 					*FoundItem->DisplayName.ToString(), FoundItem->CostCredits, GI->GetTotalCredits()));
 		}
+#endif
 	}
 }
 
@@ -267,7 +273,77 @@ void ALiminalTerminalActor::LaunchIncursion()
 		return;
 	}
 
-	if (ALiminalLobbyGameMode* LobbyGM = Cast<ALiminalLobbyGameMode>(GetWorld()->GetAuthGameMode()))
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	ALiminalAirlockActor* Airlock = nullptr;
+	for (TActorIterator<ALiminalAirlockActor> It(World); It; ++It)
+	{
+		Airlock = *It;
+		break;
+	}
+
+	if (!Airlock)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Terminal] Incursion refusee : aucun sas d'embarquement ALiminalAirlockActor detecte."));
+		return;
+	}
+
+	TArray<ALiminalPlayerState*> SquadPlayerStates;
+	if (ALiminalGameState* GS = World->GetGameState<ALiminalGameState>())
+	{
+		for (APlayerState* BasePS : GS->PlayerArray)
+		{
+			if (ALiminalPlayerState* PS = Cast<ALiminalPlayerState>(BasePS))
+			{
+				SquadPlayerStates.Add(PS);
+			}
+		}
+	}
+	if (SquadPlayerStates.Num() == 0)
+	{
+		for (TActorIterator<ALiminalPlayerState> It(World); It; ++It)
+		{
+			if (ALiminalPlayerState* PS = *It)
+			{
+				SquadPlayerStates.Add(PS);
+			}
+		}
+	}
+
+	if (SquadPlayerStates.Num() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Terminal] Incursion refusee : aucun PlayerState joueur dans la session."));
+		return;
+	}
+
+	for (ALiminalPlayerState* PS : SquadPlayerStates)
+	{
+		if (!PS->IsReady())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Terminal] Incursion refusee : joueur %s non pret (!bIsReady)."), *PS->GetPlayerName());
+			return;
+		}
+
+		if (PS->GetStatus() != EScavengerStatus::Alive)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Terminal] Incursion refusee : joueur %s non vivant (Statut: %d)."),
+				*PS->GetPlayerName(), static_cast<int32>(PS->GetStatus()));
+			return;
+		}
+
+		APawn* Pawn = PS->GetPawn();
+		if (!Pawn || !Airlock->IsActorInsideAirlock(Pawn))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Terminal] Incursion refusee : le joueur %s n'est pas a l'interieur du sas."), *PS->GetPlayerName());
+			return;
+		}
+	}
+
+	if (ALiminalLobbyGameMode* LobbyGM = Cast<ALiminalLobbyGameMode>(World->GetAuthGameMode()))
 	{
 		LobbyGM->LaunchSquadMission(SelectedBiome);
 	}

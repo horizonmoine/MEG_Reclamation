@@ -101,6 +101,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Director")
 	float GetGlobalIntensityMultiplier() const { return GlobalIntensityMultiplier; }
 
+	/** Verifie si l'apparition d'une entite est autorisee a cette position selon les regles de zone. */
+	UFUNCTION(BlueprintPure, Category = "Director")
+	bool CanSpawnEntityAt(const FVector& Location) const;
+
 	/** Force un changement de phase (debug / scripted). */
 	UFUNCTION(BlueprintCallable, Category = "Director")
 	void ForcePhase(EDirectorPhase NewPhase);

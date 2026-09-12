@@ -16,6 +16,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "GameModes/LiminalGameMode.h"
+#include "GameModes/LiminalZoneRulesSubsystem.h"
 #include "InputAction.h"
 #include "InputActionValue.h"
 #include "InputMappingContext.h"
@@ -969,6 +970,16 @@ void AScavengerCharacter::UpdateSanityPressure(float DeltaSeconds)
 		return;
 	}
 
+	if (!ULiminalZoneRulesSubsystem::IsSanityPressureActive(this))
+	{
+		const float RestoreRate = ULiminalZoneRulesSubsystem::GetSafeZoneSanityRestoreRate(this);
+		if (RestoreRate > 0.0f && CurrentSanity < MaxSanity && HasAuthority())
+		{
+			ServerRestoreSanity(RestoreRate * DeltaSeconds);
+		}
+		return;
+	}
+
 	// Reality Anchor et injection d'adrenaline stoppent l'erosion mentale
 	if (bInsideRealityAnchor || bHasAdrenalineRush)
 	{
@@ -1033,8 +1044,9 @@ void AScavengerCharacter::UpdateLocalEffects(float DeltaSeconds)
 	}
 
 	const float Sanity01 = GetSanityPercent();
+	const bool bSanityPressureActive = ULiminalZoneRulesSubsystem::IsSanityPressureActive(this);
 
-	if (Sanity01 < 0.40f)
+	if (bSanityPressureActive && Sanity01 < 0.40f)
 	{
 		FakeAlertTimer += DeltaSeconds;
 		if (FakeAlertTimer >= 7.0f)
@@ -1104,7 +1116,7 @@ void AScavengerCharacter::UpdateLocalEffects(float DeltaSeconds)
 		}
 	}
 
-	if (Sanity01 >= HallucinationSanityThresholdPercent)
+	if (!bSanityPressureActive || Sanity01 >= HallucinationSanityThresholdPercent)
 	{
 		TimeToNextHallucination = HallucinationMinIntervalSeconds;
 		return;
@@ -1121,6 +1133,11 @@ void AScavengerCharacter::UpdateLocalEffects(float DeltaSeconds)
 
 void AScavengerCharacter::SpawnHallucination()
 {
+	if (!ULiminalZoneRulesSubsystem::IsSanityPressureActive(this))
+	{
+		return;
+	}
+
 	UWorld* World = GetWorld();
 	if (!World)
 	{

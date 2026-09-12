@@ -9,6 +9,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Player/ScavengerCharacter.h"
 #include "Perception/AISense_Hearing.h"
+#include "Objects/LiminalSafeZoneVolume.h"
 
 ALiminalAirlockActor::ALiminalAirlockActor()
 {
@@ -83,6 +84,63 @@ ALiminalAirlockActor::ALiminalAirlockActor()
 void ALiminalAirlockActor::BeginPlay()
 {
 	Super::BeginPlay();
+
+	EnsureSafeZoneVolume();
+}
+
+void ALiminalAirlockActor::EnsureSafeZoneVolume()
+{
+	if (AirlockSafeZoneVolume || !HasAuthority())
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = this;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	const FVector SpawnLoc = ChamberVolume ? ChamberVolume->GetComponentLocation() : GetActorLocation();
+	AirlockSafeZoneVolume = World->SpawnActor<ALiminalSafeZoneVolume>(
+		ALiminalSafeZoneVolume::StaticClass(),
+		SpawnLoc,
+		GetActorRotation(),
+		SpawnParams);
+
+	if (AirlockSafeZoneVolume)
+	{
+		if (ChamberVolume)
+		{
+			AirlockSafeZoneVolume->SetBoxExtent(ChamberVolume->GetUnscaledBoxExtent());
+			AirlockSafeZoneVolume->AttachToComponent(ChamberVolume, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		}
+		AirlockSafeZoneVolume->SetActive(!bIsSealed);
+	}
+}
+
+ALiminalSafeZoneVolume* ALiminalAirlockActor::GetSafeZoneVolume()
+{
+	if (!AirlockSafeZoneVolume && HasAuthority())
+	{
+		EnsureSafeZoneVolume();
+	}
+	return AirlockSafeZoneVolume;
+}
+
+void ALiminalAirlockActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (AirlockSafeZoneVolume)
+	{
+		AirlockSafeZoneVolume->Destroy();
+		AirlockSafeZoneVolume = nullptr;
+	}
+
+	Super::EndPlay(EndPlayReason);
 }
 
 void ALiminalAirlockActor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -90,6 +148,7 @@ void ALiminalAirlockActor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ALiminalAirlockActor, bIsCycleActive);
+	DOREPLIFETIME(ALiminalAirlockActor, bIsSealed);
 }
 
 void ALiminalAirlockActor::Tick(float DeltaSeconds)
@@ -141,6 +200,7 @@ void ALiminalAirlockActor::ServerActivateAirlock_Implementation(AScavengerCharac
 	}
 
 	bIsCycleActive = true;
+	SetSealed(true);
 	CycleTimer = 2.5f;
 	OnRep_CycleActive();
 
@@ -148,11 +208,42 @@ void ALiminalAirlockActor::ServerActivateAirlock_Implementation(AScavengerCharac
 	UAISense_Hearing::ReportNoiseEvent(GetWorld(), GetActorLocation(), 1.0f, Operator);
 	MakeNoise(1.0f, Operator, GetActorLocation());
 
+#if !UE_BUILD_SHIPPING
 	if (GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Yellow,
 			TEXT("[SAS M.E.G.] Decontamination et purge sous pression... Scellage des portes !"));
 	}
+#endif
+}
+
+void ALiminalAirlockActor::SetSealed(bool bInSealed)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	bIsSealed = bInSealed;
+	OnRep_IsSealed();
+}
+
+void ALiminalAirlockActor::OnRep_IsSealed()
+{
+	if (ALiminalSafeZoneVolume* SZ = GetSafeZoneVolume())
+	{
+		SZ->SetActive(!bIsSealed);
+	}
+}
+
+bool ALiminalAirlockActor::IsActorInsideAirlock(const AActor* Actor) const
+{
+	if (!IsValid(Actor) || !IsValid(ChamberVolume))
+	{
+		return false;
+	}
+
+	return ChamberVolume->CalcBounds(ChamberVolume->GetComponentTransform()).GetBox().IsInsideOrOn(Actor->GetActorLocation());
 }
 
 void ALiminalAirlockActor::OnRep_CycleActive()

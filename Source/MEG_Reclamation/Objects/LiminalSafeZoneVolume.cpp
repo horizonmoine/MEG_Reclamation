@@ -61,12 +61,17 @@ void ALiminalSafeZoneVolume::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 bool ALiminalSafeZoneVolume::ContainsLocation(const FVector& Location) const
 {
-	if (!IsValid(Bounds))
+	if (!bIsActive || !IsValid(Bounds))
 	{
 		return false;
 	}
 
 	return Bounds->CalcBounds(Bounds->GetComponentTransform()).GetBox().IsInsideOrOn(Location);
+}
+
+void ALiminalSafeZoneVolume::SetActive(bool bActive)
+{
+	bIsActive = bActive;
 }
 
 void ALiminalSafeZoneVolume::SetBoxExtent(const FVector& NewExtent)

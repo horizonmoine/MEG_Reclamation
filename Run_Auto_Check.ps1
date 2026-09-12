@@ -69,6 +69,14 @@ foreach ($Name in $MapNames) {
     Verify-Step "Map: $Name.umap" (Test-Path $FilePath)
 }
 
+Write-Host "`n-- 5. Regles de Zone et Securite Hub Base Alpha --" -ForegroundColor Yellow
+$HubMapPath = "F:\MEG_Reclamation\Content\Maps\Lvl_Hub_BaseAlpha.umap"
+$HasHubSafeZone = $false
+if (Test-Path $HubMapPath) {
+    $HasHubSafeZone = [bool](Select-String -Path $HubMapPath -Pattern "LiminalSafeZoneVolume" -SimpleMatch -Quiet)
+}
+Verify-Step "Presence LiminalSafeZoneVolume dans Lvl_Hub_BaseAlpha" $HasHubSafeZone
+
 if ($SkipLiveExec) { $Mode = 'Structural' }
 if ($Mode -eq 'Automation') {
     & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Run_Automation_Tests.ps1') -TimeoutSeconds $TimeoutSeconds

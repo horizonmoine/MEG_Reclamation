@@ -1,4 +1,6 @@
 #include "GameModes/LiminalLobbyGameMode.h"
+#include "GameModes/LiminalGameState.h"
+#include "Player/LiminalPlayerState.h"
 
 #include "Components/PointLightComponent.h"
 #include "Engine/PointLight.h"
@@ -18,6 +20,8 @@
 ALiminalLobbyGameMode::ALiminalLobbyGameMode()
 {
 	DefaultPawnClass = AScavengerCharacter::StaticClass();
+	GameStateClass = ALiminalGameState::StaticClass();
+	PlayerStateClass = ALiminalPlayerState::StaticClass();
 	HUDClass = ALiminalScavengerHUD::StaticClass();
 	HubProgression = CreateDefaultSubobject<ULiminalHubProgressionComponent>(TEXT("HubProgression"));
 }
@@ -25,6 +29,14 @@ ALiminalLobbyGameMode::ALiminalLobbyGameMode()
 void ALiminalLobbyGameMode::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (HasAuthority())
+	{
+		if (ALiminalGameState* GS = GetGameState<ALiminalGameState>())
+		{
+			GS->AuthSetMissionPhase(EMissionPhase::Hub);
+		}
+	}
 
 	if (ULiminalGameInstance* GI = Cast<ULiminalGameInstance>(GetGameInstance()))
 	{
@@ -448,22 +460,26 @@ void ALiminalLobbyGameMode::BeginPlay()
 		}
 	}
 
+#if !UE_BUILD_SHIPPING
 	if (GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 8.0f, FColor::Cyan,
 			TEXT("[BASE ALPHA M.E.G.] Zone securisee active. Utilisez le terminal [E] pour choisir un biome, puis le sas [E] pour embarquer."));
 	}
+#endif
 }
 
 void ALiminalLobbyGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
 
+#if !UE_BUILD_SHIPPING
 	if (NewPlayer && GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Green,
 			FString::Printf(TEXT("Agent connecte au Hub : %s"), *NewPlayer->GetName()));
 	}
+#endif
 }
 
 void ALiminalLobbyGameMode::LaunchSquadMission(ELevelBiome Biome)

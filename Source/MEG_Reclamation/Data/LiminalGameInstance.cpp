@@ -1,6 +1,9 @@
 #include "Data/LiminalGameInstance.h"
 
 #include "Engine/World.h"
+#include "EngineUtils.h"
+#include "GameModes/LiminalGameState.h"
+#include "Player/LiminalPlayerState.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/Paths.h"
 
@@ -129,6 +132,28 @@ void ULiminalGameInstance::ReturnToHub()
 	if (!World)
 	{
 		return;
+	}
+
+	if (ALiminalGameState* GS = World->GetGameState<ALiminalGameState>())
+	{
+		for (APlayerState* BasePS : GS->PlayerArray)
+		{
+			if (ALiminalPlayerState* PS = Cast<ALiminalPlayerState>(BasePS))
+			{
+				PS->AuthResetForNewRun();
+			}
+		}
+		GS->AuthSetMissionPhase(EMissionPhase::Hub);
+	}
+	else
+	{
+		for (TActorIterator<ALiminalPlayerState> It(World); It; ++It)
+		{
+			if (ALiminalPlayerState* PS = *It)
+			{
+				PS->AuthResetForNewRun();
+			}
+		}
 	}
 
 	const FString HubMap = TEXT("/Game/Maps/Lvl_Hub_BaseAlpha");

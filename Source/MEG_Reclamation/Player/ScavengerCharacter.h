@@ -251,6 +251,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Scavenger|HUD")
 	void ToggleFieldManual();
 
+	void UpdateSanityPressure(float DeltaSeconds);
+	void UpdateLocalEffects(float DeltaSeconds);
+	void SpawnHallucination();
+
 	// --- Crouch System ---
 
 	/** Accroupissement : mouvement silencieux, passage sous les obstacles. */
@@ -581,10 +585,7 @@ private:
 
 	void EmitFootstepNoise(float DeltaSeconds);
 	void UpdateDebugHud();
-	void UpdateSanityPressure(float DeltaSeconds);
-	void UpdateLocalEffects(float DeltaSeconds);
 	void UpdateLootGaze();
-	void SpawnHallucination();
 	ABaseTool* GetCurrentTool() const;
 	void EquipLoadout();
 
